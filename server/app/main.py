@@ -2,24 +2,26 @@
 Backend - API Server
 Connection point between frontend and backend services
 """
-import os
 from dotenv import load_dotenv
 load_dotenv()
 
+import requests
+import time
+import os
 import asyncio
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
-from llm_parser import StreamParser
+from fastapi.responses import JSONResponse, PlainTextResponse
+from .llm_parser import StreamParser
 import httpx
 from pydantic import BaseModel
-# from first_msg import backboard_stream_generator
+import base64
 from backboard import BackboardClient
 from snoopy_assistant import backboard_stream_generator
-
+# import audio_tts as tts
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
-bb_client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
+# bb_client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
 
 app = FastAPI()
 
@@ -30,6 +32,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Start Audio TTS worker
+# if eleven_api_key := os.getenv("ELEVENLABS_API_KEY"):
+#     print("ElevenLabs API Key loaded")
+# else:
+#     print("ElevenLabs API Key not found in .env")
+#     exit()
+
+# tts_audio_worker = tts.audio_tts(
+#     api_key=eleven_api_key,
+#     voice_id="JBFqnCBsd6RMkjVDRZzb",
+#     model_id="eleven_multilingual_v2"
+# )
+
+class ChatRequest(BaseModel):
+    prompt: str
+    track_positions: bool = True
+
+class ImageRequest(BaseModel):
+    image_url: str
+
+@app.exception_handler(Exception)
+async def debug_exception_handler(request: Request, exc: Exception):
+    print("ERROR:", exc)
+    return PlainTextResponse(str(exc), status_code=400)
 
 """ Placeholder function to call an LLM API """
 @app.get("/chat-stream")
@@ -45,46 +72,104 @@ async def call_llm():
 if __name__ == "__main__":
     asyncio.run(call_llm())
 
-# # Meshy.ai endpoints
-# MESHY_HEADERS = {
-#     "Authorization": f"Bearer {MESHY_API_KEY}"
-# }
+# Meshy.ai endpoints
+MESHY_HEADERS = {
+    "Authorization": f"Bearer {MESHY_API_KEY}"
+}
 
-# @app.post("/generate-3d")
-# async def generate_3d(image: UploadFile = File(...)):
-#     async with httpx.AsyncClient(timeout=60) as client:
 
-#         # 1. Create Meshy image-to-3D task
-#         files = {
-#             "image": (image.filename, await image.read(), image.content_type)
-#         }
+@app.post("/generate-3d")
+async def generate_3d(req: ImageRequest):
+    async with httpx.AsyncClient(timeout=60) as client:
 
-#         create_task = await client.post(
-#             "https://api.meshy.ai/openapi/v1/image-to-3d",
-#             headers=MESHY_HEADERS,
-#             files=files
-#         )
+        # 1. Generate a preview model and get the task ID
+        image_url = req.image_url
+        print("Received image url:", image_url[0:10])
+        payload = {
+            "image_url": image_url,
+            # "model_type": "lowpoly",
+            "should_texture": False
+        }
 
-#         task_data = create_task.json()
-#         task_id = task_data["result"]["task_id"]
+        generate_preview_response = requests.post(
+            "https://api.meshy.ai/openapi/v1/image-to-3d",
+            headers=MESHY_HEADERS,
+            json=payload,
+        )
 
-#         # 2. Poll task
+        generate_preview_response.raise_for_status()
+
+        preview_task_id = generate_preview_response.json()["result"]
+
+        print("Preview task created. Task ID:", preview_task_id)
+
+        # 2. Poll the preview task status until it's finished
+        preview_task = None
+        while True:
+            time.sleep(0.2)
+            preview_task_response = requests.get(
+                f"https://api.meshy.ai/openapi/v1/image-to-3d/{preview_task_id}",
+                headers=MESHY_HEADERS,
+            )
+
+            preview_task_response.raise_for_status()
+
+            preview_task = preview_task_response.json()
+            
+            if preview_task["model_urls"]["glb"]:
+                print(preview_task)
+                return preview_task["model_urls"]["glb"]
+
+        # 3. Download the preview model in glb format
+
+        # preview_model_url = preview_task["model_urls"]["glb"]
+
+        # preview_model_response = requests.get(preview_model_url)
+        # preview_model_response.raise_for_status()
+
+        # with open("preview_model.glb", "wb") as f:
+        #     f.write(preview_model_response.content)
+        # print("Preview model downloaded.")
+
+
+
+# @app.websocket("/ws/audio")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     try:
 #         while True:
-#             await asyncio.sleep(3)
+#             chunk, command = await tts_audio_worker.get_audio_chunk()
+#             await websocket.send_bytes(chunk) # Send raw bytes
+#             await websocket.send_json({"command": command}) # Send associated command
 
-#             poll = await client.get(
-#                 f"https://api.meshy.ai/openapi/v1/tasks/{task_id}",
-#                 headers=MESHY_HEADERS
-#             )
+#     except Exception as e:
+#         print(f"Error: {e}")
 
-#             data = poll.json()
-#             status = data["result"]["status"]
 
-#             if status == "succeeded":
-#                 return {
-#                     "glbUrl": data["result"]["outputs"]["glb"]
-#                 }
+# @app.post("/stt")
+# async def speech_to_text(file: UploadFile = File(...)):
+#     if not file.content_type.startswith("audio/"):
+#         raise HTTPException(status_code=400, detail="Invalid audio file")
 
-#             if status == "failed":
-#                 return {"error": "Meshy generation failed"}
+#     file_id = uuid.uuid4().hex
+#     file_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
+
+#     # Save uploaded audio to disk
+#     with open(file_path, "wb") as f:
+#         f.write(await file.read())
+
+#     # Send file to worker
+#     stt_worker.transcribe(str(file_path))
+
+#     # Blocking wait for result (simple + correct)
+#     text = stt_worker.get_result()
+
+#     return {
+#         "text": text,
+#         "file": file_path.name,
+#     }
+
+
+
+
             
