@@ -1,24 +1,25 @@
 import re
-from typing import Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 
-# Updated Regex to be more robust for streaming
-CMD_RE = re.compile(r"\[\[([A-Z_][A-Z0-9_]*)\]\]")
+CMD_RE = re.compile(r"\[\[([A-Za-z0-9_\s-]+)\]\]")
 
 class StreamParser:
     def __init__(self):
         self.buffer = ""
-        self.clean_text = ""   # Cumulative full history
-        self.commands = []     # Cumulative list of all commands
+        self.clean_text = ""   # full history
+        self.commands = []     # list of commands (strings)
 
     def parse_chunk(self, chunk: str) -> Tuple[str, list]:
         """
-        Processes a chunk and returns ONLY confirmed clean text and 
-        ONLY the commands found in this specific chunk.
+        Add streamed chunk, and return:
+          - newly confirmed clean text
+          - list of all completed commands found (empty list if none)
         """
         self.buffer += chunk
         new_clean = ""
         commands_found = []
 
+        # Extract ALL commands from the buffer
         while True:
             m = CMD_RE.search(self.buffer)
             if not m:
@@ -27,46 +28,48 @@ class StreamParser:
             start, end = m.span()
             cmd = m.group(1)
 
-            # Confirm text BEFORE the command as clean
+            # everything before [[COMMAND]] is now confirmed clean
             text_segment = self.buffer[:start]
             new_clean += text_segment
             self.clean_text += text_segment
 
-            # Store the command
+            # record + emit the command
             self.commands.append(cmd)
             commands_found.append(cmd)
 
-            # Advance buffer past the found command
+            # remove through the end of this command, keep the rest for later
             self.buffer = self.buffer[end:]
 
-        first_bracket = self.buffer.find("[")
-        
-        if first_bracket == -1:
-            # No brackets at all: the entire buffer is clean text
-            new_clean += self.buffer
-            self.clean_text += self.buffer
-            self.buffer = ""
-        elif first_bracket > 0:
-            # Text exists before the first '[': that part is definitely clean
-            flush = self.buffer[:first_bracket]
-            new_clean += flush
-            self.clean_text += flush
-            self.buffer = self.buffer[first_bracket:]
+        # If no full command exists, we can safely flush text that
+        # cannot be part of a future command start.
+        # Keep at most 1 '[' in case a command marker '[[' starts across chunk boundary.
+        if not commands_found:
+            last_bracket = self.buffer.rfind("[")
+            if last_bracket == -1:
+                # no possible command start
+                new_clean += self.buffer
+                self.clean_text += self.buffer
+                self.buffer = ""
+            else:
+                # flush everything before the last '['
+                flush = self.buffer[:last_bracket]
+                new_clean += flush
+                self.clean_text += flush
+                self.buffer = self.buffer[last_bracket:]
 
         return new_clean, commands_found
 
     def finalize(self) -> Dict[str, Any]:
         """
-        Cleans up any remaining text in the buffer when the stream ends.
+        Flush remaining buffer as clean text.
+        (If buffer contains an unmatched '[[' it will be treated as literal text.)
         """
-        remaining = self.buffer
-        if remaining:
-            self.clean_text += remaining
+        if self.buffer:
+            self.clean_text += self.buffer
             self.buffer = ""
 
         return {
             "clean_text": self.clean_text,
-            "new_clean": remaining, # Helpful for the final yield in your assistant
             "commands": self.commands,
             "is_end": True,
         }
