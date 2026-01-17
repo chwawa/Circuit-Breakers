@@ -167,28 +167,28 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error: {e}")
 
 
-@app.post("/stt")
-async def speech_to_text(file: UploadFile = File(...)):
-    if not file.content_type.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="Invalid audio file")
+# @app.post("/stt")
+# async def speech_to_text(file: UploadFile = File(...)):
+#     if not file.content_type.startswith("audio/"):
+#         raise HTTPException(status_code=400, detail="Invalid audio file")
 
-    file_id = uuid.uuid4().hex
-    file_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
+#     file_id = uuid.uuid4().hex
+#     file_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
 
-    # Save uploaded audio to disk
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
+#     # Save uploaded audio to disk
+#     with open(file_path, "wb") as f:
+#         f.write(await file.read())
 
-    # Send file to worker
-    stt_worker.transcribe(str(file_path))
+#     # Send file to worker
+#     stt_worker.transcribe(str(file_path))
 
-    # Blocking wait for result (simple + correct)
-    text = stt_worker.get_result()
+#     # Blocking wait for result (simple + correct)
+#     text = stt_worker.get_result()
 
-    return {
-        "text": text,
-        "file": file_path.name,
-    }
+#     return {
+#         "text": text,
+#         "file": file_path.name,
+#     }
 
 
 

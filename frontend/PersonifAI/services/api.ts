@@ -1,3 +1,6 @@
+// import { createScene } from "./threeScene.js";
+// const { loadModel } = createScene();
+
 export const apiService = {
   // Create friend - send image and metadata to backend
   createFriend: async (imageUri: string, name: string, personality?: string) => {
@@ -16,6 +19,19 @@ export const apiService = {
     //   body: formData
     // });
     // return response.json();
+
+    // Send to 3D model generation endpoint
+    const response = await fetch("http://100.66.83.158:8000/generate-3d", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ image_url: imageUri }),
+    });
+
+    const glbUrl = await response.json();
+    console.log("glbUrl :", glbUrl)
+    // loadModel(glbUrl);
     
     console.log('API: Creating friend', { name, personality });
     return { success: true, friendId: Date.now().toString() };
