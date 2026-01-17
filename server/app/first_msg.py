@@ -41,12 +41,12 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
         elif chunk['type'] == 'message_complete':
             break
 
-        final_data = parser.finalize()
-        results_container.update(final_data)
-        
-        # Send one last packet to signal completion
-        yield json.dumps({
-            "clean_text": "", 
-            "command": "",
-            "is_end": True
-        }) + "\n"
+    final_data = parser.finalize()
+    results_container.update(final_data)
+    
+    # Send one last packet to signal completion
+    yield json.dumps({
+        "clean_text": "", 
+        "command": "",
+        "is_end": True
+    }) + "\n"

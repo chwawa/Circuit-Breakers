@@ -9,18 +9,22 @@ class StreamParser:
         self.clean_text = ""   # full history
         self.commands = []     # list of commands (strings)
 
-    def parse_chunk(self, chunk: str) -> Tuple[str, Optional[str]]:
+    def parse_chunk(self, chunk: str) -> Tuple[str, list]:
         """
         Add streamed chunk, and return:
           - newly confirmed clean text
-          - at most ONE completed command (or None)
+          - list of all completed commands found (empty list if none)
         """
         self.buffer += chunk
         new_clean = ""
+        commands_found = []
 
-        # If there is at least one full command in the buffer, emit ONLY the first one.
-        m = CMD_RE.search(self.buffer)
-        if m:
+        # Extract ALL commands from the buffer
+        while True:
+            m = CMD_RE.search(self.buffer)
+            if not m:
+                break
+
             start, end = m.span()
             cmd = m.group(1)
 
@@ -29,31 +33,31 @@ class StreamParser:
             new_clean += text_segment
             self.clean_text += text_segment
 
-            # record + emit exactly one command
+            # record + emit the command
             self.commands.append(cmd)
+            commands_found.append(cmd)
 
             # remove through the end of this command, keep the rest for later
             self.buffer = self.buffer[end:]
 
-            return new_clean, cmd
-
         # If no full command exists, we can safely flush text that
         # cannot be part of a future command start.
         # Keep at most 1 '[' in case a command marker '[[' starts across chunk boundary.
-        last_bracket = self.buffer.rfind("[")
-        if last_bracket == -1:
-            # no possible command start
-            new_clean += self.buffer
-            self.clean_text += self.buffer
-            self.buffer = ""
-        else:
-            # flush everything before the last '['
-            flush = self.buffer[:last_bracket]
-            new_clean += flush
-            self.clean_text += flush
-            self.buffer = self.buffer[last_bracket:]
+        if not commands_found:
+            last_bracket = self.buffer.rfind("[")
+            if last_bracket == -1:
+                # no possible command start
+                new_clean += self.buffer
+                self.clean_text += self.buffer
+                self.buffer = ""
+            else:
+                # flush everything before the last '['
+                flush = self.buffer[:last_bracket]
+                new_clean += flush
+                self.clean_text += flush
+                self.buffer = self.buffer[last_bracket:]
 
-        return new_clean, None
+        return new_clean, commands_found
 
     def finalize(self) -> Dict[str, Any]:
         """
