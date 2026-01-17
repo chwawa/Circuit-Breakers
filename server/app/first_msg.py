@@ -1,33 +1,52 @@
-# Install: pip install backboard-sdk
-import asyncio
-from backboard import BackboardClient
+import json
+from llm_parser import StreamParser
 
-async def main():
-    # Initialize the Backboard client
-    client = BackboardClient(api_key="YOUR_API_KEY")
-
-    # Create an assistant
-    assistant = await client.create_assistant(
-        name="My First Assistant",
-        system_prompt="A helpful assistant"
+async def backboard_stream_generator(bb_client, prompt: str, results_container: dict):
+    """
+    Handles the connection to Backboard and yields parsed JSON chunks.
+    """
+    parser = StreamParser()
+    
+    # 1. Setup Assistant/Thread
+    assistant = await bb_client.create_assistant(
+        name="Assistant", 
+        system_prompt="Return text with [[COMMAND]] markers."
     )
+    thread = await bb_client.create_thread(assistant.assistant_id)
 
-    # Create a thread
-    thread = await client.create_thread(assistant.assistant_id)
-
-    # Send a message and stream the response
-    async for chunk in await client.add_message(
+    # 2. Add message and get stream
+    stream = await bb_client.add_message(
         thread_id=thread.thread_id,
-        content="Tell me a short story about a robot learning to paint.",
+        content=prompt,
         llm_provider="openai",
         model_name="gpt-4o",
         stream=True
-    ):
-        # Print each chunk of content as it arrives
+    )
+
+    # 3. Process the stream
+    async for chunk in stream:
         if chunk['type'] == 'content_streaming':
-            print(chunk['content'], end='', flush=True)
+            raw_text = chunk['content']
+            
+            # Calls llm_parser to parse chunk
+            clean_segment, new_cmds = parser.parse_chunk(raw_text)
+            
+            if clean_segment or new_cmds:
+                yield json.dumps({
+                    "new_text": clean_segment,
+                    "new_commands": new_cmds, 
+                    "is_final": False
+                }) + "\n"
+        
         elif chunk['type'] == 'message_complete':
             break
 
-if __name__ == "__main__":
-    asyncio.run(main())
+        final_data = parser.finalize()
+        results_container.update(final_data)
+        
+        # Send one last packet to signal completion
+        yield json.dumps({
+            "audio_chunk": "", 
+            "commands": [],
+            "is_final": True
+        }) + "\n"

@@ -9,13 +9,16 @@ load_dotenv()
 import asyncio
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from llm_parser import parse_llm_text
+from fastapi.responses import JSONResponse, StreamingResponse
+from llm_parser import StreamParser
 import httpx
 from pydantic import BaseModel
+from first_msg import backboard_stream_generator
+from backboard import BackboardClient
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
+bb_client = BackboardClient(api_key="YOUR_BACKBOARD_KEY")
 
 app = FastAPI()
 
@@ -27,48 +30,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class ChatRequest(BaseModel):
-    prompt: str
-    track_positions: bool = True
-
 """ Placeholder function to call an LLM API """
-async def call_llm(prompt: str) -> str:
-    # Testing 
-    return f"Hi!! [[JUMP]] You said: {prompt} [[WAVE]]"
-
-@app.post("/chat")
-async def chat(request: ChatRequest):
-    """
-    Parse LLM-generated text with embedded commands.
-    
-    Request JSON:
-    {
-        "text": "Hi!! [[JUMP]] You said: {prompt} [[WAVE]]",
-        "preserve_spacing": false,
-        "track_positions": false
-    }
-    
-    Response JSON:
-    {
-        "clean_text": "Hi!! You said: {prompt}",
-        "commands": ["JUMP", "WAVE"],
-        "positions": null
-    }
-    """
-    try:
-        llm_text = await call_llm(request.prompt)
-
-        parsed = parse_llm_text(llm_text, track_positions=request.track_positions)
-        return {
-            "clean_text": parsed.clean_text,
-            "commands": parsed.commands,
-            "positions": parsed.positions
-        }
-
-    
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
+@app.get("/chat-stream")
+async def call_llm(prompt: str):
+    final_results = {"clean_text": "", "commands": []}
+    return StreamingResponse(
+        backboard_stream_generator(bb_client, prompt, final_results), 
+        media_type="application/x-ndjson"
+    )
 
 # Meshy.ai endpoints
 MESHY_HEADERS = {
