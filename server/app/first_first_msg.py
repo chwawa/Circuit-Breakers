@@ -1,10 +1,11 @@
 # Install: pip install backboard-sdk
 import asyncio
+import os
 from backboard import BackboardClient
 
 async def main():
     # Initialize the Backboard client
-    client = BackboardClient(api_key="espr_OtMXvGn9UCVTUPW_3MC5pt7OW1kfMCKXmIOHrrOoKbg")
+    client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
 
     # Create an assistant
     assistant = await client.create_assistant(

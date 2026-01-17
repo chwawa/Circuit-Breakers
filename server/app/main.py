@@ -18,7 +18,7 @@ from backboard import BackboardClient
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
-bb_client = BackboardClient(api_key="")
+bb_client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
 
 app = FastAPI()
 
