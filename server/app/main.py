@@ -93,7 +93,7 @@ async def generate_3d(req: ImageRequest):
         print("Received image url:", image_url[0:10])
         payload = {
             "image_url": image_url,
-            "model_type": "lowpoly",
+            # "model_type": "lowpoly",
             "should_texture": False
         }
 
