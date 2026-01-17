@@ -1,21 +1,54 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { AudioStreamPlayer } from '../services/audio_player';
 
 interface ChatInputProps {
   onSendText: (text: string) => void;
   onSendVoice: (audioUri: string) => void;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSendText, onSendVoice }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({
+  onSendText,
+  onSendVoice,
+}) => {
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
+  // 🔊 Persistent audio stream player
+  const audioPlayerRef = useRef<AudioStreamPlayer | null>(null);
+
+  if (!audioPlayerRef.current) {
+    audioPlayerRef.current = new AudioStreamPlayer();
+  }
+
+  // 🧹 Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      audioPlayerRef.current?.stop();
+    };
+  }, []);
+
+  const startAudioStreamIfNeeded = () => {
+    audioPlayerRef.current?.connect();
+  };
+
   const handleSend = () => {
     if (!inputText.trim()) return;
+
     onSendText(inputText);
+
+    // 🔊 Start listening for backend audio
+    startAudioStreamIfNeeded();
+
     setInputText('');
   };
 
@@ -35,6 +68,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendText, onSendVoice })
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
+
       setRecording(recording);
       setIsRecording(true);
     } catch (err) {
@@ -52,6 +86,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendText, onSendVoice })
 
     if (uri) {
       onSendVoice(uri);
+
+      // 🔊 Start listening for backend audio
+      startAudioStreamIfNeeded();
     }
   };
 
@@ -89,7 +126,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendText, onSendVoice })
       <TouchableOpacity
         onPress={handleSend}
         disabled={!inputText.trim()}
-        style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+        style={[
+          styles.sendButton,
+          !inputText.trim() && styles.sendButtonDisabled,
+        ]}
       >
         <Ionicons name="send" size={20} color="white" />
       </TouchableOpacity>
