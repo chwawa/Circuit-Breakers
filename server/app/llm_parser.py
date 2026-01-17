@@ -21,7 +21,7 @@ class StreamParser:
         """
         self.buffer += chunk
         new_clean_text = ""
-        new_commands = []
+        new_command = ""
         
         while "[[" in self.buffer and "]]" in self.buffer:
             start = self.buffer.find("[[")
@@ -35,8 +35,8 @@ class StreamParser:
                 
                 # Extract the command
                 command = self.buffer[start+2 : end]
-                new_commands.append(command)
-                self.commands.append(command)
+                new_command += command
+                self.commands += command
                 
                 # Advance buffer
                 self.buffer = self.buffer[end+2:]
@@ -49,4 +49,4 @@ class StreamParser:
             self.clean_text += self.buffer
             self.buffer = ""
             
-        return new_clean_text, new_commands
+        return new_clean_text, new_command
