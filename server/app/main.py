@@ -18,7 +18,7 @@ from backboard import BackboardClient
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
-bb_client = BackboardClient(api_key="espr_OtMXvGn9UCVTUPW_3MC5pt7OW1kfMCKXmIOHrrOoKbg")
+bb_client = BackboardClient(api_key="")
 
 app = FastAPI()
 
@@ -32,13 +32,18 @@ app.add_middleware(
 
 """ Placeholder function to call an LLM API """
 @app.get("/chat-stream")
-async def call_llm(prompt: str):
-    final_results = {"clean_text": "", "command": "", "is_end": False}
-    print(f"Received prompt: {final_results['clean_text']}")
-    return StreamingResponse(
-        backboard_stream_generator(bb_client, prompt, final_results), 
-        media_type="application/x-ndjson"
-    )
+async def call_llm():
+    prompt = "Who\'s your best friend?"
+    final_results = {"clean_text": "", "commands": "", "is_end": False}
+    results = []
+    async for chunk in backboard_stream_generator(bb_client, prompt, final_results):
+        results.append(chunk)
+        print(chunk)  # Print each chunk
+    
+    print(f"Final results: {final_results}")  # Print aggregated results
+
+if __name__ == "__main__":
+    asyncio.run(call_llm())
 
 # Meshy.ai endpoints
 MESHY_HEADERS = {

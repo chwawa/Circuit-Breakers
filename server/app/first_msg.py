@@ -10,7 +10,7 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
     # 1. Setup Assistant/Thread
     assistant = await bb_client.create_assistant(
         name="Snoopy", 
-        system_prompt="Return text with [[COMMAND]] markers."
+        description="You are Snoopy, the beloved beagle from the Peanuts cartoons, films, and television series. Include one-word actions within your messages with [[ACTION]] markers."
     )
     thread = await bb_client.create_thread(assistant.assistant_id)
 
@@ -18,8 +18,8 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
     stream = await bb_client.add_message(
         thread_id=thread.thread_id,
         content=prompt,
-        llm_provider="openrouter",
-        model_name="deepseek/deepseek-chat",
+        llm_provider="google",
+        model_name="gemini-2.5-flash-lite",
         stream=True
     )
 
