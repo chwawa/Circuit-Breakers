@@ -6,7 +6,7 @@ Connection point between frontend and backend services
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from llm_parser import parse_llm_text, parse_llm_text_preserve_spacing
+from llm_parser import parse_llm_text
 import httpx
 from pydantic import BaseModel
 
@@ -22,7 +22,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     prompt: str
-    track_positions: bool = False
+    track_positions: bool = True
 
 """ Placeholder function to call an LLM API """
 async def call_llm(prompt: str) -> str:
@@ -36,7 +36,7 @@ async def chat(request: ChatRequest):
     
     Request JSON:
     {
-        "text": "Hi!! [[JUMP]] I'm excited to meet you [[WAVE]]",
+        "text": "Hi!! [[JUMP]] You said: {prompt} [[WAVE]]",
         "preserve_spacing": false,
         "track_positions": false
     }
@@ -44,7 +44,7 @@ async def chat(request: ChatRequest):
     Response JSON:
     {
         "clean_text": "Hi!! You said: {prompt}",
-        "commands": ["JUMP", "WAVE",
+        "commands": ["JUMP", "WAVE"],
         "positions": null
     }
     """
