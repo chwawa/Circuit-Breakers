@@ -16,7 +16,7 @@ from .llm_parser import parse_llm_text
 import httpx
 from pydantic import BaseModel
 import base64
-import audio_tts as tts
+# import audio_tts as tts
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
 
@@ -31,17 +31,17 @@ app.add_middleware(
 )
 
 # Start Audio TTS worker
-if eleven_api_key := os.getenv("ELEVENLABS_API_KEY"):
-    print("ElevenLabs API Key loaded")
-else:
-    print("ElevenLabs API Key not found in .env")
-    exit()
+# if eleven_api_key := os.getenv("ELEVENLABS_API_KEY"):
+#     print("ElevenLabs API Key loaded")
+# else:
+#     print("ElevenLabs API Key not found in .env")
+#     exit()
 
-tts_audio_worker = tts.audio_tts(
-    api_key=eleven_api_key,
-    voice_id="JBFqnCBsd6RMkjVDRZzb",
-    model_id="eleven_multilingual_v2"
-)
+# tts_audio_worker = tts.audio_tts(
+#     api_key=eleven_api_key,
+#     voice_id="JBFqnCBsd6RMkjVDRZzb",
+#     model_id="eleven_multilingual_v2"
+# )
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -154,17 +154,17 @@ async def generate_3d(req: ImageRequest):
 
 
 
-@app.websocket("/ws/audio")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            chunk, command = await tts_audio_worker.get_audio_chunk()
-            await websocket.send_bytes(chunk) # Send raw bytes
-            await websocket.send_json({"command": command}) # Send associated command
+# @app.websocket("/ws/audio")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     try:
+#         while True:
+#             chunk, command = await tts_audio_worker.get_audio_chunk()
+#             await websocket.send_bytes(chunk) # Send raw bytes
+#             await websocket.send_json({"command": command}) # Send associated command
 
-    except Exception as e:
-        print(f"Error: {e}")
+#     except Exception as e:
+#         print(f"Error: {e}")
 
 
 # @app.post("/stt")

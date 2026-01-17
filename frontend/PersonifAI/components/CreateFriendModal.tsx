@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { apiService } from '../services/api';
@@ -26,6 +27,7 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
   const [name, setName] = useState('');
   const [personality, setPersonality] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [show3DModal, setShow3DModal] = useState(false);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -90,6 +92,10 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
     setPersonality('');
     setImageUri(null);
     onClose();
+
+    // "Redirect" to next page
+    setShow3DModal(true);
+
   };
 
   const handleClose = () => {
@@ -108,13 +114,17 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
           <View style={styles.imageSection}>
             <Text style={styles.label}>Photo</Text>
             <TouchableOpacity
-              onPress={() =>
-                Alert.alert('Choose Photo', 'Select photo source', [
-                  { text: 'Camera', onPress: takePhoto },
-                  { text: 'Gallery', onPress: pickImage },
-                  { text: 'Cancel', style: 'cancel' },
-                ])
-              }
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  pickImage(); // web should go straight to file picker
+                } else {
+                  Alert.alert('Choose Photo', 'Select photo source', [
+                    { text: 'Camera', onPress: takePhoto },
+                    { text: 'Gallery', onPress: pickImage },
+                    { text: 'Cancel', style: 'cancel' },
+                  ]);
+                }
+              }}
               style={styles.imagePicker}
             >
               {imageUri ? (
