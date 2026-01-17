@@ -18,8 +18,8 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
     stream = await bb_client.add_message(
         thread_id=thread.thread_id,
         content=prompt,
-        llm_provider="openai",
-        model_name="gpt-4o",
+        llm_provider="openrouter",
+        model_name="deepseek/deepseek-chat",
         stream=True
     )
 
