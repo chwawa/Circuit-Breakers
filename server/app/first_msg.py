@@ -1,7 +1,7 @@
 import json
 from llm_parser import StreamParser
 
-async def backboard_stream_generator(bb_client, prompt: str, results_container: dict):
+async def backboard_stream_generator(bb_client, prompt: str, results_container: str, final_results: bool = False):
     """
     Handles the connection to Backboard and yields parsed JSON chunks.
     """
@@ -9,8 +9,8 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
     
     # 1. Setup Assistant/Thread
     assistant = await bb_client.create_assistant(
-        name="Assistant", 
-        system_prompt="Return text with [[COMMAND]] markers."
+        name="Snoopy", 
+        description="You are Snoopy, the beloved beagle from the Peanuts cartoons, films, and television series. Include one-word actions within your messages with [[ACTION]] markers."
     )
     thread = await bb_client.create_thread(assistant.assistant_id)
 
@@ -18,8 +18,8 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
     stream = await bb_client.add_message(
         thread_id=thread.thread_id,
         content=prompt,
-        llm_provider="openrouter",
-        model_name="deepseek/deepseek-chat",
+        llm_provider="google",
+        model_name="gemini-2.5-flash-lite",
         stream=True
     )
 
@@ -33,20 +33,20 @@ async def backboard_stream_generator(bb_client, prompt: str, results_container: 
             
             if clean_segment or new_cmds:
                 yield json.dumps({
-                    "new_text": clean_segment,
-                    "new_commands": new_cmds, 
-                    "is_final": False
+                    "clean_text": clean_segment,
+                    "command": new_cmds, 
+                    "is_end": False
                 }) + "\n"
         
         elif chunk['type'] == 'message_complete':
             break
 
-        final_data = parser.finalize()
-        results_container.update(final_data)
-        
-        # Send one last packet to signal completion
-        yield json.dumps({
-            "audio_chunk": "", 
-            "commands": [],
-            "is_final": True
-        }) + "\n"
+    final_data = parser.finalize()
+    results_container.update(final_data)
+    
+    # Send one last packet to signal completion
+    yield json.dumps({
+        "clean_text": "", 
+        "command": "",
+        "is_end": True
+    }) + "\n"

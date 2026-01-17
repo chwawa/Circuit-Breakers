@@ -18,7 +18,7 @@ from backboard import BackboardClient
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
-bb_client = BackboardClient(api_key="YOUR_BACKBOARD_KEY")
+bb_client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
 
 app = FastAPI()
 
@@ -32,53 +32,63 @@ app.add_middleware(
 
 """ Placeholder function to call an LLM API """
 @app.get("/chat-stream")
-async def call_llm(prompt: str):
-    final_results = {"clean_text": "", "commands": []}
-    return StreamingResponse(
-        backboard_stream_generator(bb_client, prompt, final_results), 
-        media_type="application/x-ndjson"
-    )
+async def call_llm():
+    prompt = "Who\'s your best friend?"
+    final_results = {"clean_text": "", "commands": [], "is_end": False}
+    results = []
+    async for chunk in backboard_stream_generator(bb_client, prompt, final_results):
+        results.append(chunk)
+        print(chunk)  # Print each chunk
+    
+    print(f"Final results: {final_results}")  # Print aggregated results
+    
+    # Set is_end to True only for the final result
+    final_results["is_end"] = True
+    return final_results
 
-# Meshy.ai endpoints
-MESHY_HEADERS = {
-    "Authorization": f"Bearer {MESHY_API_KEY}"
-}
+if __name__ == "__main__":
+    asyncio.run(call_llm())
 
-@app.post("/generate-3d")
-async def generate_3d(image: UploadFile = File(...)):
-    async with httpx.AsyncClient(timeout=60) as client:
+# # Meshy.ai endpoints
+# MESHY_HEADERS = {
+#     "Authorization": f"Bearer {MESHY_API_KEY}"
+# }
 
-        # 1. Create Meshy image-to-3D task
-        files = {
-            "image": (image.filename, await image.read(), image.content_type)
-        }
+# @app.post("/generate-3d")
+# async def generate_3d(image: UploadFile = File(...)):
+#     async with httpx.AsyncClient(timeout=60) as client:
 
-        create_task = await client.post(
-            "https://api.meshy.ai/openapi/v1/image-to-3d",
-            headers=MESHY_HEADERS,
-            files=files
-        )
+#         # 1. Create Meshy image-to-3D task
+#         files = {
+#             "image": (image.filename, await image.read(), image.content_type)
+#         }
 
-        task_data = create_task.json()
-        task_id = task_data["result"]["task_id"]
+#         create_task = await client.post(
+#             "https://api.meshy.ai/openapi/v1/image-to-3d",
+#             headers=MESHY_HEADERS,
+#             files=files
+#         )
 
-        # 2. Poll task
-        while True:
-            await asyncio.sleep(3)
+#         task_data = create_task.json()
+#         task_id = task_data["result"]["task_id"]
 
-            poll = await client.get(
-                f"https://api.meshy.ai/openapi/v1/tasks/{task_id}",
-                headers=MESHY_HEADERS
-            )
+#         # 2. Poll task
+#         while True:
+#             await asyncio.sleep(3)
 
-            data = poll.json()
-            status = data["result"]["status"]
+#             poll = await client.get(
+#                 f"https://api.meshy.ai/openapi/v1/tasks/{task_id}",
+#                 headers=MESHY_HEADERS
+#             )
 
-            if status == "succeeded":
-                return {
-                    "glbUrl": data["result"]["outputs"]["glb"]
-                }
+#             data = poll.json()
+#             status = data["result"]["status"]
 
-            if status == "failed":
-                return {"error": "Meshy generation failed"}
+#             if status == "succeeded":
+#                 return {
+#                     "glbUrl": data["result"]["outputs"]["glb"]
+#                 }
+
+#             if status == "failed":
+#                 return {"error": "Meshy generation failed"}
             

@@ -9,8 +9,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 async def main():
     # Initialize the Backboard client
-    api_key = os.getenv('BACKBOARD_API_KEY')
-    client = BackboardClient(api_key=api_key)
+    client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
 
     # Create an assistant
     assistant = await client.create_assistant(
