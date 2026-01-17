@@ -13,8 +13,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from llm_parser import StreamParser
 import httpx
 from pydantic import BaseModel
-from first_msg import backboard_stream_generator
+# from first_msg import backboard_stream_generator
 from backboard import BackboardClient
+from snoopy_assistant import backboard_stream_generator
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
@@ -33,18 +34,13 @@ app.add_middleware(
 """ Placeholder function to call an LLM API """
 @app.get("/chat-stream")
 async def call_llm():
-    prompt = "Who\'s your best friend?"
-    final_results = {"clean_text": "", "commands": [], "is_end": False}
+    # final_results = {"clean_text": "", "commands": [], "is_end": False}
     results = []
-    async for chunk in backboard_stream_generator(bb_client, prompt, final_results):
+    async for chunk in backboard_stream_generator():
         results.append(chunk)
         print(chunk)  # Print each chunk
     
-    print(f"Final results: {final_results}")  # Print aggregated results
-    
-    # Set is_end to True only for the final result
-    final_results["is_end"] = True
-    return final_results
+    return JSONResponse(content={"results": results})
 
 if __name__ == "__main__":
     asyncio.run(call_llm())

@@ -4,6 +4,10 @@ import os
 import json
 from dotenv import load_dotenv
 from backboard import BackboardClient
+import json
+from llm_parser import StreamParser
+
+target_chunk_size = 500  # max characters per chunk
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -30,10 +34,13 @@ def save_conversation_metadata(assistant_id, thread_id):
     with open(CONVERSATION_FILE, 'w') as f:
         json.dump(metadata, f)
 
-async def main():
+async def backboard_stream_generator():
     # Initialize the Backboard client
     api_key = os.getenv('BACKBOARD_API_KEY')
     client = BackboardClient(api_key=api_key)
+
+    parser = StreamParser()
+    text_buffer = ""
 
     # Check if we have an existing conversation
     existing_conversation = load_conversation_metadata()
@@ -48,7 +55,7 @@ async def main():
         # Create a new assistant
         assistant = await client.create_assistant(
             name="Snoopy",
-            description="You are Snoopy, the beloved beagle from the Peanuts cartoons, films, and television series."
+            description="You are Snoopy, the beloved beagle from the Peanuts cartoons, films, and television series. Include one-word actions within your messages with [[ACTION]] markers."
         )
         
         # Create a new thread
@@ -89,11 +96,27 @@ async def main():
         ):
             # Print each chunk of content as it arrives
             if chunk.get('type') == 'content_streaming':
-                print(chunk.get('content', ''), end='', flush=True)
-            elif chunk.get('type') == 'message_complete':
+                raw_text = chunk['content']
+            
+                # Calls llm_parser to parse chunk
+                clean_segment, new_cmds = parser.parse_chunk(raw_text)
+                text_buffer += clean_segment
+
+                if new_cmds:
+                    yield json.dumps({
+                        "clean_text": text_buffer,
+                        "commands": new_cmds, 
+                        "is_end": False
+                    }) + "\n"
+                
+                elif len(text_buffer) >= target_chunk_size: 
+                    yield json.dumps({
+                        "clean_text": text_buffer,
+                        "commands": new_cmds, 
+                        "is_end": False
+                    }) + "\n"
+            
+            elif chunk['type'] == 'message_complete':
                 break
         
         print("\n")  # New line after response
-
-if __name__ == "__main__":
-    asyncio.run(main())
