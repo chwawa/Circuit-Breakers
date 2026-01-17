@@ -27,7 +27,6 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
   const [name, setName] = useState('');
   const [personality, setPersonality] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [show3DModal, setShow3DModal] = useState(false);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -92,10 +91,6 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
     setPersonality('');
     setImageUri(null);
     onClose();
-
-    // "Redirect" to next page
-    setShow3DModal(true);
-
   };
 
   const handleClose = () => {
