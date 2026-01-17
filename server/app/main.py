@@ -7,12 +7,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from llm_parser import parse_llm_text
 import httpx
 from pydantic import BaseModel
+import base64
+import audio_tts as tts
+from dotenv import load_dotenv
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
@@ -25,6 +28,19 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Start Audio TTS worker
+if eleven_api_key := os.getenv("ELEVENLABS_API_KEY"):
+    print("ElevenLabs API Key loaded")
+else:
+    print("ElevenLabs API Key not found in .env")
+    exit()
+
+tts_audio_worker = tts.audio_tts(
+    api_key=eleven_api_key,
+    voice_id="JBFqnCBsd6RMkjVDRZzb",
+    model_id="eleven_multilingual_v2"
 )
 
 class ChatRequest(BaseModel):
@@ -112,4 +128,46 @@ async def generate_3d(image: UploadFile = File(...)):
 
             if status == "failed":
                 return {"error": "Meshy generation failed"}
+            
+
+
+@app.websocket("/ws/audio")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            chunk, command = await tts_audio_worker.get_audio_chunk()
+            await websocket.send_bytes(chunk) # Send raw bytes
+            await websocket.send_json({"command": command}) # Send associated command
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+@app.post("/stt")
+async def speech_to_text(file: UploadFile = File(...)):
+    if not file.content_type.startswith("audio/"):
+        raise HTTPException(status_code=400, detail="Invalid audio file")
+
+    file_id = uuid.uuid4().hex
+    file_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
+
+    # Save uploaded audio to disk
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    # Send file to worker
+    stt_worker.transcribe(str(file_path))
+
+    # Blocking wait for result (simple + correct)
+    text = stt_worker.get_result()
+
+    return {
+        "text": text,
+        "file": file_path.name,
+    }
+
+
+
+
             
