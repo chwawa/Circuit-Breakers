@@ -108,15 +108,26 @@ async def backboard_stream_generator():
                         "commands": new_cmds, 
                         "is_end": False
                     }) + "\n"
+                    text_buffer = ""
                 
                 elif len(text_buffer) >= target_chunk_size: 
                     yield json.dumps({
                         "clean_text": text_buffer,
-                        "commands": new_cmds, 
+                        "commands": [], 
                         "is_end": False
                     }) + "\n"
+                    text_buffer = ""
             
             elif chunk['type'] == 'message_complete':
+                final_data = parser.finalize()
+                remaining_text = text_buffer + (final_data.get("clean_text", "") if not clean_segment in final_data.get("clean_text", "") else "")
+                
+                if remaining_text or final_data.get("commands"):
+                    yield json.dumps({
+                        "clean_text": remaining_text,
+                        "commands": final_data.get("commands", []),
+                        "is_end": True
+                    }) + "\n"
                 break
         
         print("\n")  # New line after response
