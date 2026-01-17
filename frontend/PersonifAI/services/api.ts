@@ -1,6 +1,25 @@
 // import { createScene } from "./threeScene.js";
 // const { loadModel } = createScene();
 
+export async function blobUrlToBase64(blobUrl: string): Promise<string> {
+  const response = await fetch(blobUrl);
+  const blob = await response.blob();
+
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () =>
+      reject(new Error('Failed to convert blob to base64'));
+
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      resolve(dataUrl);
+    };
+
+    reader.readAsDataURL(blob);
+  });
+}
+
 export const apiService = {
   // Create friend - send image and metadata to backend
   createFriend: async (imageUri: string, name: string, personality?: string) => {
@@ -21,12 +40,14 @@ export const apiService = {
     // return response.json();
 
     // Send to 3D model generation endpoint
-    const response = await fetch("http://100.66.83.158:8000/generate-3d", {
+    // console.log("Sending image to 3D generation API:", imageUri);
+    const base64Image = await blobUrlToBase64(imageUri);
+    const response = await fetch("http://localhost:8000/generate-3d", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ image_url: imageUri }),
+      body: JSON.stringify({ image_url: base64Image }),
     });
 
     const glbUrl = await response.json();
