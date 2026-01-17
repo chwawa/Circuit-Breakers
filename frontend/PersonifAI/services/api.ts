@@ -1,4 +1,4 @@
-// import { createScene } from "./threeScene.js";
+import { createScene } from "../components/threeScene.js";
 // const { loadModel } = createScene();
 
 export async function blobUrlToBase64(blobUrl: string): Promise<string> {
@@ -41,17 +41,17 @@ export const apiService = {
 
     // Send to 3D model generation endpoint
     // console.log("Sending image to 3D generation API:", imageUri);
-    const base64Image = await blobUrlToBase64(imageUri);
-    const response = await fetch("http://localhost:8000/generate-3d", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ image_url: base64Image }),
-    });
+    // const base64Image = await blobUrlToBase64(imageUri);
+    // const response = await fetch("http://localhost:8000/generate-3d", {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json"
+    //   },
+    //   body: JSON.stringify({ image_url: base64Image }),
+    // });
 
-    const glbUrl = await response.json();
-    console.log("glbUrl :", glbUrl)
+    // const glbUrl = await response.json();
+    // console.log("glbUrl :", glbUrl)
     // loadModel(glbUrl);
     
     console.log('API: Creating friend', { name, personality });
