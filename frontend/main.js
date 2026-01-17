@@ -21,7 +21,7 @@ function blobToBase64(blob) {
 }
 
 openBtn.onclick = () => startCamera(video);
-  loadModel('/public/models/preview_model.glb');
+  // loadModel('/public/models/preview_model.glb');
 
 captureBtn.onclick = async () => {
   const imageBlob = await capturePhoto(video, canvas);
@@ -40,8 +40,8 @@ captureBtn.onclick = async () => {
   });
 //   console.log(await response.text());
 
-  const data = await response.json();
-  console.log("data :", data)
-  loadModel(data.glbUrl);
+  const glbUrl = await response.json();
+  console.log("glbUrl :", glbUrl)
+  loadModel(glbUrl);
 //   loadModel('/public/models/Meshy_AI_Animation_Walking_withSkin.glb');
 };

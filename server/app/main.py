@@ -92,7 +92,9 @@ async def generate_3d(req: ImageRequest):
         image_url = req.image_url
         print("Received image url:", image_url[0:10])
         payload = {
-            "image_url": image_url
+            "image_url": image_url,
+            "model_type": "lowpoly",
+            "should_texture": False
         }
 
         generate_preview_response = requests.post(
@@ -102,7 +104,6 @@ async def generate_3d(req: ImageRequest):
         )
 
         generate_preview_response.raise_for_status()
-        print("preview response: ", generate_preview_response.json())
 
         preview_task_id = generate_preview_response.json()["result"]
 
@@ -111,6 +112,7 @@ async def generate_3d(req: ImageRequest):
         # 2. Poll the preview task status until it's finished
         preview_task = None
         while True:
+            time.sleep(0.2)
             preview_task_response = requests.get(
                 f"https://api.meshy.ai/openapi/v1/image-to-3d/{preview_task_id}",
                 headers=MESHY_HEADERS,
@@ -119,9 +121,8 @@ async def generate_3d(req: ImageRequest):
             preview_task_response.raise_for_status()
 
             preview_task = preview_task_response.json()
-        
             
-            if preview_task:
+            if preview_task["model_urls"]["glb"]:
                 print(preview_task)
                 return preview_task["model_urls"]["glb"]
 
