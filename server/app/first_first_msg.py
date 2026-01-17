@@ -1,10 +1,16 @@
 # Install: pip install backboard-sdk
 import asyncio
+import os
+from dotenv import load_dotenv
 from backboard import BackboardClient
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 async def main():
     # Initialize the Backboard client
-    client = BackboardClient(api_key="espr_OtMXvGn9UCVTUPW_3MC5pt7OW1kfMCKXmIOHrrOoKbg")
+    api_key = os.getenv('BACKBOARD_API_KEY')
+    client = BackboardClient(api_key=api_key)
 
     # Create an assistant
     assistant = await client.create_assistant(
