@@ -18,6 +18,7 @@ from pydantic import BaseModel
 import base64
 from backboard import BackboardClient
 from snoopy_assistant import backboard_stream_generator
+from image_chatbot import create_chatbot_assistant
 # import audio_tts as tts
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")

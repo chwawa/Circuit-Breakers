@@ -6,12 +6,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
 from backboard import BackboardClient
+from llm_parser import StreamParser
 
 # Load environment variables
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Import the image analyzer function
 from image_analyzer import analyze_image_with_gemini
+target_chunk_size = 250  # max characters per chunk
 
 def generate_name_from_image(image_path: str) -> str:
     """
@@ -67,13 +69,27 @@ async def create_chatbot_assistant(image_path: str, chatbot_name: str = None) ->
     
     # Step 1: Generate name
     print("🏷️  Generating name for object...")
-    object_name = generate_name_from_image(image_path)
-    print(f"✓ Object name: {object_name}\n")
+    # object_name = generate_name_from_image(image_path)
+    # print(f"✓ Object name: {object_name}\n")
     
     # Step 2: Generate description
     print("📝 Generating description...")
-    description = analyze_image_with_gemini(image_path)
+    # description = analyze_image_with_gemini(image_path)
     print(f"✓ Description generated!\n")
+
+    description = """You are a white silicone case 
+    for wireless earbuds, shaped like a cute cartoon 
+    chick. You have a bright orange beak and two small, 
+    dark eyes. On your chest, you wear a yellow bib with 
+    a smaller chick face on it, conge beak and two small, 
+    dark eyes. On your chest, you wear a yellow bib with a
+    smaller chick face on it, complete with two black eyes and 
+    a little U-shaped mouth. A yellow line wraps around you diagonally, 
+    like a strap or a sash. Your feet are stubby and orange, firmly planted 
+    on a textured, dark gray surface. A small, gray tuft of "hair" sprouts
+    from the top of your head."""
+
+    object_name = "Chick AirPods Case"
     
     # Use provided name or generated name
     if chatbot_name is None:
@@ -89,7 +105,7 @@ async def create_chatbot_assistant(image_path: str, chatbot_name: str = None) ->
     
     assistant = await client.create_assistant(
         name=chatbot_name,
-        description=description
+        description=description + f"Include one-word actions (e.g. JUMP, WAVE, WOBBLE) within your messages with [[ACTION]] markers."
     )
     print(f"✓ Assistant created: {assistant.assistant_id}")
     
@@ -110,10 +126,14 @@ async def create_chatbot_assistant(image_path: str, chatbot_name: str = None) ->
 async def interactive_chat(assistant_info: dict):
     """
     Interactive chat loop with the assistant.
+    Yields cleaned text and commands for each response.
     """
     thread_id = assistant_info['thread_id']
     client = assistant_info['client']
     assistant_name = assistant_info['name']
+
+    parser = StreamParser()
+    text_buffer = ""
     
     print(f"✓ Starting chat with '{assistant_name}'")
     print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
@@ -137,10 +157,40 @@ async def interactive_chat(assistant_info: dict):
             stream=True
         ):
             if chunk.get('type') == 'content_streaming':
-                content = chunk.get('content', '')
-                print(content, flush=True)
-            elif chunk.get('type') == 'message_complete':
-                print("\n")
+                raw_text = chunk['content']
+            
+                # Calls llm_parser to parse chunk
+                clean_segment, new_cmds = parser.parse_chunk(raw_text)
+                text_buffer += clean_segment
+                # print(clean_segment, end="", flush=True)
+
+                if new_cmds:
+                    yield {
+                        "clean_text": text_buffer,
+                        "commands": new_cmds, 
+                        "is_end": False
+                    }
+                    text_buffer = ""
+                
+                elif len(text_buffer) >= target_chunk_size: 
+                    yield {
+                        "clean_text": text_buffer,
+                        "commands": [], 
+                        "is_end": False
+                    }
+                    text_buffer = ""
+            
+            elif chunk['type'] == 'message_complete':
+                final_data = parser.finalize()
+                remaining_text = text_buffer + (final_data.get("clean_text", "") if not clean_segment in final_data.get("clean_text", "") else "")
+                
+                if remaining_text or final_data.get("commands"):
+                    yield {
+                        "clean_text": remaining_text,
+                        "commands": final_data.get("commands", []),
+                        "is_end": True
+                    }
+                print()
                 break
 
 async def main(image_path: str, chatbot_name: str = None):
@@ -150,8 +200,12 @@ async def main(image_path: str, chatbot_name: str = None):
     # Create assistant from image
     assistant_info = await create_chatbot_assistant(image_path, chatbot_name)
     
-    # Start interactive chat
-    await interactive_chat(assistant_info)
+    # Start interactive chat and process yielded data
+    async for response in interactive_chat(assistant_info):
+        print(f"\n[YIELDED] Clean text: {response['clean_text']}")
+        print(f"[YIELDED] Commands: {response['commands']}")
+        print(f"[YIELDED] Is end: {response['is_end']}")
+        # TODO: Send response['clean_text'] and response['commands'] to audio converter here
 
 if __name__ == "__main__":
     # Get image path from command line
