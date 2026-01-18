@@ -44,6 +44,11 @@ export function createScene() {
       // currentModel.rotation.y += delta * 0.6;
       // currentModel.position.y = Math.sin(clock.elapsedTime * 2) * 0.04;
 
+      // Bobbing motion
+      const bobSpeed = 2;
+      const bobHeight = 0.1;
+      currentModel.position.y = Math.sin(clock.elapsedTime * bobSpeed) * bobHeight;
+
       // Shake animation (if active)
       if (shakeState) {
         shakeState.elapsed += delta * 1000;
