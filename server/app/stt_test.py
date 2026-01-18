@@ -19,17 +19,45 @@ BACKEND_URL = "http://localhost:8000"  # Your backend server
 
 
 def record_audio():
-    print("🎤 Speak now...")
-    audio = sd.rec(
-        int(RECORD_SECONDS * SAMPLE_RATE),
-        samplerate=SAMPLE_RATE,
-        channels=1,
-        dtype="float32",
-    )
-    sd.wait()
-    print("🛑 Recording finished")
-
-    sf.write(AUDIO_FILE, audio, SAMPLE_RATE)
+    """Record audio from microphone until user presses Enter"""
+    # print("🎤 Speak now... (Press Enter to stop recording)")
+    
+    CHUNK_SIZE = int(SAMPLE_RATE * 0.5)  # 0.5 second chunks
+    audio_chunks = []
+    
+    def audio_callback(indata, frames, time, status):
+        if status:
+            print(f"⚠️  Audio warning: {status}")
+        audio_chunks.append(indata.copy())
+    
+    print("💬 Recording... (Press Enter when done)")
+    
+    try:
+        stream = sd.InputStream(
+            channels=1,
+            samplerate=SAMPLE_RATE,
+            callback=audio_callback,
+            blocksize=CHUNK_SIZE
+        )
+        
+        with stream:
+            input()  # Wait for user to press Enter
+        
+        print("🛑 Recording finished")
+        
+        # Combine all chunks
+        if audio_chunks:
+            audio = np.concatenate(audio_chunks, axis=0)
+            duration = len(audio) / SAMPLE_RATE
+            print(f"✅ Recorded {duration:.1f} seconds")
+            sf.write(AUDIO_FILE, audio, SAMPLE_RATE)
+        else:
+            print("❌ No audio recorded")
+    
+    except Exception as e:
+        print(f"❌ Recording error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def send_to_backend(text: str):
