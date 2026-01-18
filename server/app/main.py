@@ -18,7 +18,7 @@ from pydantic import BaseModel
 import base64
 import app.audio_tts as tts
 
-MODEL_DIR = "models"
+MODEL_DIR = "../frontend/PersonifAI/public/models"
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
 
@@ -51,6 +51,7 @@ class ChatRequest(BaseModel):
 
 class ImageRequest(BaseModel):
     image_url: str
+    image_id: str = "default_image"
 
 @app.exception_handler(Exception)
 async def debug_exception_handler(request: Request, exc: Exception):
@@ -102,7 +103,7 @@ MESHY_HEADERS = {
 }
 
 @app.post("/generate-3d")
-async def generate_3d(req: ImageRequest, image_id: str = "default_image"):
+async def generate_3d(req: ImageRequest):
     async with httpx.AsyncClient(timeout=60) as client:
 
         # 1. Generate a preview model and get the task ID
@@ -152,14 +153,14 @@ async def generate_3d(req: ImageRequest, image_id: str = "default_image"):
         model_resp.raise_for_status()
 
         # Save using image_id as the filename
-        file_path = os.path.join(MODEL_DIR, f"{image_id}.glb")
+        file_path = os.path.join(MODEL_DIR, f"{req.image_id}.glb")
         
         with open(file_path, "wb") as f:
             f.write(model_resp.content)
-            
-        print(f"[{image_id}] Saved to {file_path}")
 
-        return f"http://localhost:8000/models/{image_id}"
+        print(f"{req.image_id} Saved to {file_path}")
+
+        return f"http://localhost:8000/models/{req.image_id}"
 
 @app.get("/models/{image_id}")
 async def get_model(image_id: str):

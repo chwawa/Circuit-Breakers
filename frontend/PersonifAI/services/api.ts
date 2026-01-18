@@ -42,18 +42,18 @@ export const apiService = {
     // return response.json();
 
     // Send to 3D model generation endpoint
-    // console.log("Sending image to 3D generation API:", imageUri);
-    // const base64Image = await blobUrlToBase64(imageUri);
-    // const response = await fetch("http://localhost:8000/generate-3d", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json"
-    //   },
-    //   body: JSON.stringify({ image_url: base64Image, image_id: id })
-    // });
+    console.log("Sending image to 3D generation API:", imageUri);
+    const base64Image = await blobUrlToBase64(imageUri);
+    const response = await fetch("http://localhost:8000/generate-3d", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ image_url: base64Image, image_id: id })
+    });
 
-    // const glbUrl = await response.json();
-    // console.log("glbUrl :", glbUrl)
+    const glbUrl = await response.json();
+    console.log("glb path :", glbUrl)
     // loadModel(glbUrl);
 
     

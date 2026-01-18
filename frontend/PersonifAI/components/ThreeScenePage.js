@@ -11,8 +11,8 @@ export function createScene() {
   scene.background = new THREE.Color(0x0f172a);
 
   // Camera
-  camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
-  camera.position.set(0, 1.4, 4);
+  camera = new THREE.PerspectiveCamera(90, 1, 0.5, 5);
+  camera.position.set(0, 0, 1.8);
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -40,9 +40,9 @@ export function createScene() {
     mixer?.update(delta);
 
     if (currentModel) {
-      // Smooth idle motion
-      currentModel.rotation.y += delta * 0.6;
-      currentModel.position.y = Math.sin(clock.elapsedTime * 2) * 0.04;
+      // Smooth rotating motion
+      // currentModel.rotation.y += delta * 0.6;
+      // currentModel.position.y = Math.sin(clock.elapsedTime * 2) * 0.04;
 
       // Shake animation (if active)
       if (shakeState) {

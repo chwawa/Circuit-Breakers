@@ -50,7 +50,8 @@ export default function ChatScreen() {
     containerRef.current.appendChild(renderer.domElement)
 
     // Load model
-    sceneData.loadModel('/models/preview_model.glb')
+    sceneData.loadModel(`/models/${id}.glb`)
+    console.log("id: ", id)
 
     return () => {
       containerRef.current?.removeChild(renderer.domElement)
