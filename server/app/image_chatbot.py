@@ -202,10 +202,27 @@ async def main(image_path: str, chatbot_name: str = None):
     
     # Start interactive chat and process yielded data
     async for response in interactive_chat(assistant_info):
-        print(f"\n[YIELDED] Clean text: {response['clean_text']}")
+        clean_text = response['clean_text']
+        
+        # Clean up excessive whitespace while preserving intentional formatting
+        # Remove multiple consecutive newlines, reduce excessive spaces
+        lines = clean_text.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            # Strip leading/trailing spaces from each line
+            stripped = line.strip()
+            # Only add non-empty lines
+            if stripped:
+                cleaned_lines.append(stripped)
+        
+        # Join with single space for natural prose
+        cleaned_text = ' '.join(cleaned_lines)
+        
+        # Print with debug info but cleaned text
+        print(f"\n[YIELDED] Clean text: {cleaned_text}")
         print(f"[YIELDED] Commands: {response['commands']}")
         print(f"[YIELDED] Is end: {response['is_end']}")
-        # TODO: Send response['clean_text'] and response['commands'] to audio converter here
 
 if __name__ == "__main__":
     # Get image path from command line
