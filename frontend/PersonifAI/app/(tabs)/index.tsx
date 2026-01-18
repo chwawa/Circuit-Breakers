@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
@@ -14,6 +15,39 @@ import { FriendCard } from '../../components/FriendCard';
 import { CreateFriendModal } from '../../components/CreateFriendModal';
 import ModelPage from '@/components/ModelPage';
 import { Ionicons } from '@expo/vector-icons';
+
+const STAR_COUNT = 60;
+const isWeb = Platform.OS === 'web';
+
+function BackgroundStars() {
+  const stars = Array.from({ length: STAR_COUNT });
+
+  return (
+    <View style={styles.starsContainer} pointerEvents="none">
+      {stars.map((_, i) => {
+        const size = Math.random() * 2 + 1;
+        const opacity = Math.random() * 0.6 + 0.2;
+
+        return (
+          <View
+            key={i}
+            style={[
+              styles.star,
+              {
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+                opacity,
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
 
 export default function FriendsScreen() {
   const router = useRouter();
@@ -31,9 +65,52 @@ export default function FriendsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {Platform.OS === 'web' && (
+        <style>{`
+          .glow-title {
+            font-size: 60px;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            flex-wrap: wrap;
+          }
+
+          .glow-letter {
+            display: inline-block;
+            animation: starGlow 2.5s ease-in-out infinite;
+          }
+
+          @keyframes starGlow {
+            0% {
+              text-shadow: 0 0 4px rgba(216,180,254,0.4);
+            }
+            50% {
+              text-shadow: 0 0 16px rgba(168,85,247,0.8);
+            }
+            100% {
+              text-shadow: 0 0 4px rgba(216,180,254,0.4);
+            }
+          }
+        `}</style>
+    )}
+      <BackgroundStars />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
+          {isWeb ? (
+            <h1 className="glow-title">
+              {"Your 3D Friends".split("").map((char, i) => (
+                <span
+                  key={i}
+                  className="glow-letter"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </h1>
+        ) : (
           <Text style={styles.title}>Your 3D Friends</Text>
+        )}
           <Text style={styles.subtitle}>Create and chat with your AI companions</Text>
         </View>
 
@@ -101,15 +178,17 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
+    fontSize: 64,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 8,
+
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#d8b4fe',
   },
   grid: {
@@ -149,5 +228,21 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#d8b4fe',
     fontSize: 18,
+  },
+  starsContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: -1,
+  },
+  star: {
+    position: 'absolute',
+    backgroundColor: 'white',
+
+    // Glow ✨
+    shadowColor: '#ffffff',
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+
+    // Android glow
+    elevation: 3,
   },
 });
