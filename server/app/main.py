@@ -12,10 +12,9 @@ import asyncio
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
-from app.llm_parser import parse_llm_text
+# from app.llm_parser import parse_llm_text
 import httpx
 from pydantic import BaseModel
-import base64
 from image_chatbot import create_chatbot_assistant, interactive_chat
 import audio_tts as tts
 import audio_stt as stt

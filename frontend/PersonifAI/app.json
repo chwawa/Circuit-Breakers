@@ -9,14 +9,26 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "We need camera access to take profile photos",
+        "NSPhotoLibraryUsageDescription": "We need photo access to upload images"
+      },
+      "bundleIdentifier": "com.anonymous.PersonifAI"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE"
+        "backgroundColor": "#E6F4FE",
+        "permissions": [
+          "CAMERA",
+          "READ_MEDIA_IMAGES",
+          "CAMERA",
+          "READ_MEDIA_IMAGES"
+        ]
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.PersonifAI"
     },
     "web": {
       "output": "static"

@@ -28,6 +28,12 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
   const [personality, setPersonality] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
 
+  const [cameraPermission, requestCameraPermission] =
+  ImagePicker.useCameraPermissions();
+
+  const [libraryPermission, requestLibraryPermission] =
+  ImagePicker.useMediaLibraryPermissions();
+
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -49,18 +55,19 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
   };
 
   const takePhoto = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      Alert.alert('Permission needed', 'Please allow access to camera');
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera permission denied');
       return;
     }
 
     const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
       quality: 0.8,
     });
+
+    console.log('Camera result:', result);
 
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
