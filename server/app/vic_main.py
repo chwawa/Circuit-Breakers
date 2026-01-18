@@ -19,11 +19,13 @@ from pydantic import BaseModel
 import base64
 from app.image_chatbot import create_chatbot_assistant, interactive_chat
 from app.audio_stt import audio_stt
+from app.audio_tts import audio_tts
 from contextlib import asynccontextmanager
 import json
 from typing import Dict, List
 import tempfile
 import os
+import io
 
 MODEL_DIR = "../frontend/PersonifAI/public/models"
 
@@ -88,6 +90,48 @@ class SendMessageRequest(BaseModel):
 async def debug_exception_handler(request: Request, exc: Exception):
     print("ERROR:", exc)
     return PlainTextResponse(str(exc), status_code=400)
+
+
+# ==================== Helper Functions ====================
+
+def generate_speech(text: str) -> bytes:
+    """
+    Convert text to speech using ElevenLabs API.
+    Returns audio bytes in MP3 format.
+    """
+    try:
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            print("⚠️ ELEVENLABS_API_KEY not configured, skipping audio generation")
+            return None
+        
+        if not text or len(text.strip()) == 0:
+            print("⚠️ Empty text, skipping audio generation")
+            return None
+        
+        print(f"🔊 Generating speech for: {text[:50]}...")
+        
+        # Generate audio directly using ElevenLabs client
+        from elevenlabs.client import ElevenLabs
+        client = ElevenLabs(api_key=api_key)
+        
+        audio_stream = client.text_to_speech.convert(
+            text=text,
+            voice_id="21m00Tcm4TlvDq8ikWAM",  # Rachel voice
+            model_id="eleven_turbo_v2_5",  # Latest model available on free tier
+            output_format="mp3_44100_128"
+        )
+        
+        # Convert to bytes
+        audio_bytes = b"".join(audio_stream)
+        print(f"✅ Audio generated successfully: {len(audio_bytes)} bytes")
+        
+        return audio_bytes
+    except Exception as e:
+        print(f"❌ Error in generate_speech: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 # ==================== Friend Management Endpoints ====================
@@ -217,10 +261,24 @@ async def send_message(req: SendMessageRequest):
             results.append(response)
         
         print(f"📤 Returning {len(results)} results to frontend")
+        
+        # Generate speech for all responses
+        print(f"🔊 Generating speech for responses...")
+        combined_text = " ".join([r['clean_text'] for r in results])
+        audio_bytes = generate_speech(combined_text)
+        
+        # Encode audio to base64 for JSON response
+        audio_data = None
+        if audio_bytes:
+            import base64
+            audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+            print(f"✅ Audio encoded: {len(audio_data)} chars")
+        
         return JSONResponse(content={
             "success": True,
             "friend_id": friend_id,
-            "results": results
+            "results": results,
+            "audio": audio_data
         })
     
     except Exception as e:
@@ -316,11 +374,25 @@ async def send_voice_message(
             results.append(response)
         
         print(f"📤 Returning {len(results)} results to frontend")
+        
+        # Generate speech for all responses
+        print(f"🔊 Generating speech for responses...")
+        combined_text = " ".join([r['clean_text'] for r in results])
+        audio_bytes = generate_speech(combined_text)
+        
+        # Encode audio to base64 for JSON response
+        audio_data = None
+        if audio_bytes:
+            import base64
+            audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+            print(f"✅ Audio encoded: {len(audio_data)} chars")
+        
         return JSONResponse(content={
             "success": True,
             "friend_id": friend_id,
             "transcribed_text": transcribed_text,
-            "results": results
+            "results": results,
+            "audio": audio_data
         })
         
     except Exception as e:

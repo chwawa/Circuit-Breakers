@@ -20,6 +20,7 @@ import { ChatInput } from '../../components/ChatInput';
 import { apiService } from '../../services/api';
 import { Message } from '../../types';
 import { createScene } from '../../components/ThreeScenePage';
+import * as FileSystem from 'expo-file-system';
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -109,6 +110,21 @@ export default function ChatScreen() {
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, aiMessage]);
+
+        // Play audio response if available
+        if (response.audio) {
+          console.log("🔊 Playing audio response...");
+          try {
+            // Create data URI from base64 audio
+            const audioUri = `data:audio/mpeg;base64,${response.audio}`;
+            console.log("💾 Audio URI created");
+
+            // Play the audio file
+            playAudioResponse(audioUri);
+          } catch (audioError) {
+            console.error("❌ Error handling audio:", audioError);
+          }
+        }
       }
     } catch (error) {
       console.error("❌ Error getting response:", error);
@@ -156,6 +172,21 @@ export default function ChatScreen() {
             timestamp: Date.now(),
           };
           setMessages((prev) => [...prev, aiMessage]);
+
+          // Play audio response if available
+          if (response.audio) {
+            console.log("🔊 Playing audio response...");
+            try {
+              // Create data URI from base64 audio
+              const audioUri = `data:audio/mpeg;base64,${response.audio}`;
+              console.log("💾 Audio URI created");
+
+              // Play the audio file
+              playAudioResponse(audioUri);
+            } catch (audioError) {
+              console.error("❌ Error handling audio:", audioError);
+            }
+          }
         }
       }
     } catch (error) {
