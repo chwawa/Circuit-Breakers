@@ -18,9 +18,12 @@ import httpx
 from pydantic import BaseModel
 import base64
 from app.image_chatbot import create_chatbot_assistant, interactive_chat
+from app.audio_stt import audio_stt
 from contextlib import asynccontextmanager
 import json
 from typing import Dict, List
+import tempfile
+import os
 
 MODEL_DIR = "../frontend/PersonifAI/public/models"
 
@@ -230,7 +233,104 @@ async def send_message(req: SendMessageRequest):
         }, status_code=400)
 
 
-@app.get("/friends")
+@app.post("/send-voice-message")
+async def send_voice_message(
+    audio: UploadFile = File(...),
+    friend_id: str = Form(...)
+):
+    """
+    Receive audio file, convert to text using Whisper, 
+    then process as text message through the assistant.
+    """
+    global friends_db
+    
+    print(f"🎤 Received voice message for friend '{friend_id}'")
+    
+    # Check if friend exists
+    if friend_id not in friends_db:
+        return JSONResponse(content={
+            "success": False,
+            "error": f"Friend '{friend_id}' not found"
+        }, status_code=404)
+    
+    try:
+        # Save audio file temporarily
+        audio_content = await audio.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp:
+            tmp.write(audio_content)
+            audio_path = tmp.name
+        
+        print(f"💾 Audio saved temporarily to: {audio_path}")
+        
+        # Convert speech to text using Whisper
+        print(f"🎙️ Converting speech to text...")
+        stt = audio_stt(model_name="base", device="cpu", language="en")
+        stt.audio_queue.put(audio_path)
+        
+        # Wait for transcription
+        import time
+        timeout = 60
+        start_time = time.time()
+        transcribed_text = None
+        
+        while time.time() - start_time < timeout:
+            try:
+                transcribed_text = stt.text_queue.get(timeout=1)
+                break
+            except:
+                continue
+        
+        if not transcribed_text:
+            raise Exception("Failed to transcribe audio - timeout")
+        
+        # Clean up temp file
+        os.unlink(audio_path)
+        
+        print(f"✅ Transcribed text: '{transcribed_text}'")
+        
+        # Now process the transcribed text as a normal message
+        print(f"💬 Processing transcribed message...")
+        friend_data = friends_db[friend_id]
+        assistant_info = friend_data["assistant_info"]
+        results = []
+        response_count = 0
+        
+        # Send message to assistant and stream response
+        async for response in interactive_chat(assistant_info, user_prompt=transcribed_text):
+            response_count += 1
+            print(f"📊 Response #{response_count} received")
+            
+            clean_text = response['clean_text']
+            lines = clean_text.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                stripped = line.strip()
+                if stripped:
+                    cleaned_lines.append(stripped)
+            clean_text = ' '.join(cleaned_lines)
+            response['clean_text'] = clean_text
+            
+            print(f"\n[RESPONSE] Clean text: {response['clean_text']}")
+            print(f"[RESPONSE] Commands: {response['commands']}")
+            
+            results.append(response)
+        
+        print(f"📤 Returning {len(results)} results to frontend")
+        return JSONResponse(content={
+            "success": True,
+            "friend_id": friend_id,
+            "transcribed_text": transcribed_text,
+            "results": results
+        })
+        
+    except Exception as e:
+        print(f"❌ Error processing voice message: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e)
+        }, status_code=400)
 async def get_friends():
     """
     Get all created friends with their metadata.

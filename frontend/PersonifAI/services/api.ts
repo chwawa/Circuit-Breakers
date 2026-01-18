@@ -24,11 +24,11 @@ export const apiService = {
   // Create friend - send image file and metadata to backend
   createFriend: async (imageUri: string, name: string, personality?: string) => {
     const id = Date.now().toString()
-    
+
     try {
       // Fetch the image blob from URI
       console.log("🎬 Starting friend creation:", { imageUri, name, personality, id });
-      
+
       console.log("📸 Fetching image from:", imageUri);
       const response = await fetch(imageUri);
       if (!response.ok) {
@@ -36,16 +36,16 @@ export const apiService = {
       }
       const blob = await response.blob();
       console.log("✅ Image fetched, size:", blob.size, "bytes");
-      
+
       // Create FormData with file and metadata
       const formData = new FormData();
       formData.append('image', blob, 'photo.jpg');
       formData.append('name', name);
       formData.append('personality', personality || "");
       formData.append('image_id', id);
-      
+
       console.log("📤 Sending image file to backend:", { name, personality, id });
-      
+
       // Send to backend - don't set Content-Type, let fetch set it with boundary
       const createResponse = await fetch("http://localhost:8000/create-friend", {
         method: "POST",
@@ -53,7 +53,7 @@ export const apiService = {
       });
 
       console.log("📋 Backend response status:", createResponse.status);
-      
+
       if (!createResponse.ok) {
         const errorText = await createResponse.text();
         console.error("❌ Backend error:", errorText);
@@ -62,13 +62,13 @@ export const apiService = {
 
       const data = await createResponse.json();
       console.log('✅ Friend created successfully:', data);
-      
+
       return { success: data.success, friendId: data.friend?.id || id, modelUrl: data.friend?.model_url || "" };
     } catch (error) {
       console.error('❌ Error creating friend:', error);
       throw error;
     }
-    
+
     // ========== COMMENTED OUT OLD CODE ==========
     // const formData = new FormData();
     // formData.append('image', {
@@ -99,7 +99,7 @@ export const apiService = {
   // Send text message to friend
   sendTextMessage: async (friendId: string, text: string) => {
     console.log('📤 Sending text message to backend:', { friendId, text });
-    
+
     try {
       const response = await fetch('http://localhost:8000/send-message', {
         method: 'POST',
@@ -118,7 +118,7 @@ export const apiService = {
       console.error('❌ Error sending message:', error);
       throw error;
     }
-    
+
     // COMMENTED OUT: Old placeholder code
     // const response = await fetch('YOUR_BACKEND_URL/message', {
     //   method: 'POST',
@@ -131,32 +131,45 @@ export const apiService = {
 
   // Send voice message to friend
   sendVoiceMessage: async (friendId: string, audioUri: string) => {
-    const formData = new FormData();
-    formData.append('audio', {
-      uri: audioUri,
-      type: 'audio/mp3',
-      name: 'message.mp3',
-    } as any);
-    formData.append('friendId', friendId);
-    
-    // TODO: Replace with your backend URL
-    // const response = await fetch('YOUR_BACKEND_URL/voice-message', {
-    //   method: 'POST',
-    //   body: formData
-    // });
-    // const audioResponse = await response.blob();
-    // return audioResponse;
-    
-    console.log('API: Sending voice message', { friendId });
-    return null; // Return audio URI in real implementation
+    try {
+      console.log('🎤 Sending voice message:', { friendId, audioUri });
+
+      // Fetch audio file from URI
+      const audioResponse = await fetch(audioUri);
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to fetch audio: ${audioResponse.statusText}`);
+      }
+      const audioBlob = await audioResponse.blob();
+      console.log('✅ Audio fetched, size:', audioBlob.size, 'bytes');
+
+      // Create FormData with audio file
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'message.wav');
+      formData.append('friend_id', friendId);
+
+      // Send to backend
+      const response = await fetch('http://localhost:8000/send-voice-message', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend error:', errorText);
+        throw new Error(`Failed to send voice message: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Voice message response:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error sending voice message:', error);
+      throw error;
+    }
   },
 
   // Get friend status (for polling processing status)
   getFriendStatus: async (friendId: string) => {
-    // TODO: Replace with your backend URL
-    // const response = await fetch(`YOUR_BACKEND_URL/friend/${friendId}/status`);
-    // return response.json();
-    
     console.log('API: Checking friend status', { friendId });
     return { isProcessing: false };
   }

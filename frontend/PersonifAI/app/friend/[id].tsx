@@ -123,30 +123,51 @@ export default function ChatScreen() {
   };
 
   const handleSendVoice = async (audioUri: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: '[Voice message]',
-      isUser: true,
-      timestamp: Date.now(),
-    };
+    console.log("🎤 Processing voice message:", audioUri);
 
-    setMessages((prev) => [...prev, userMessage]);
+    try {
+      // Send voice to backend
+      const response = await apiService.sendVoiceMessage(friend.id, audioUri);
 
-    const responseUri = await apiService.sendVoiceMessage(friend.id, audioUri);
+      if (response && response.transcribed_text) {
+        // Add user's transcribed message
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          text: response.transcribed_text,
+          isUser: true,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+        console.log("✅ Added transcribed message:", response.transcribed_text);
 
-    if (responseUri) {
-      playAudioResponse(responseUri);
-    }
+        // Add AI response(s)
+        if (response.results && Array.isArray(response.results)) {
+          const fullText = response.results
+            .map((r: any) => r.clean_text)
+            .join(" ")
+            .trim();
 
-    setTimeout(() => {
-      const aiMessage: Message = {
+          console.log("💬 Full AI response text:", fullText);
+
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: fullText || `Response from ${friend.name}`,
+            isUser: false,
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing voice message:", error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: '[Voice response]',
+        text: "Sorry, I had an error processing your voice message. Please try again.",
         isUser: false,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   return (
