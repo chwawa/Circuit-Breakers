@@ -20,6 +20,7 @@ import { ChatInput } from '../../components/ChatInput';
 import { apiService } from '../../services/api';
 import { Message } from '../../types';
 import { createScene } from '../../components/ThreeScenePage';
+import * as FileSystem from 'expo-file-system';
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -36,8 +37,8 @@ export default function ChatScreen() {
   useEffect(() => {
     return sound
       ? () => {
-          sound.unloadAsync();
-        }
+        sound.unloadAsync();
+      }
       : undefined;
   }, [sound]);
 
@@ -88,49 +89,116 @@ export default function ChatScreen() {
 
     setMessages((prev) => [...prev, userMessage]);
 
-    const audioUri = await apiService.sendTextMessage(friend.id, text);
+    try {
+      console.log("📤 Sending message to backend...");
+      const response = await apiService.sendTextMessage(friend.id, text);
+      console.log("✅ Backend response:", response);
 
-    if (audioUri) {
-      playAudioResponse(audioUri);
-    }
+      if (response && response.results) {
+        // Combine all response chunks into one message
+        const fullText = response.results
+          .map((r: any) => r.clean_text)
+          .join(" ")
+          .trim();
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
+        console.log("💬 Full AI response text:", fullText);
+
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: fullText || `Response from ${friend.name}`,
+          isUser: false,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+
+        // Play audio response if available
+        if (response.audio) {
+          console.log("🔊 Playing audio response...");
+          try {
+            // Create data URI from base64 audio
+            const audioUri = `data:audio/mpeg;base64,${response.audio}`;
+            console.log("💾 Audio URI created");
+
+            // Play the audio file
+            playAudioResponse(audioUri);
+          } catch (audioError) {
+            console.error("❌ Error handling audio:", audioError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error getting response:", error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: `Response from ${friend.name}`,
+        text: "Sorry, I had an error processing that. Please try again.",
         isUser: false,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   const handleSendVoice = async (audioUri: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: '[Voice message]',
-      isUser: true,
-      timestamp: Date.now(),
-    };
+    console.log("🎤 Processing voice message:", audioUri);
 
-    setMessages((prev) => [...prev, userMessage]);
+    try {
+      // Send voice to backend
+      const response = await apiService.sendVoiceMessage(friend.id, audioUri);
 
-    const responseUri = await apiService.sendVoiceMessage(friend.id, audioUri);
+      if (response && response.transcribed_text) {
+        // Add user's transcribed message
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          text: response.transcribed_text,
+          isUser: true,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+        console.log("✅ Added transcribed message:", response.transcribed_text);
 
-    if (responseUri) {
-      playAudioResponse(responseUri);
-    }
+        // Add AI response(s)
+        if (response.results && Array.isArray(response.results)) {
+          const fullText = response.results
+            .map((r: any) => r.clean_text)
+            .join(" ")
+            .trim();
 
-    setTimeout(() => {
-      const aiMessage: Message = {
+          console.log("💬 Full AI response text:", fullText);
+
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: fullText || `Response from ${friend.name}`,
+            isUser: false,
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+
+          // Play audio response if available
+          if (response.audio) {
+            console.log("🔊 Playing audio response...");
+            try {
+              // Create data URI from base64 audio
+              const audioUri = `data:audio/mpeg;base64,${response.audio}`;
+              console.log("💾 Audio URI created");
+
+              // Play the audio file
+              playAudioResponse(audioUri);
+            } catch (audioError) {
+              console.error("❌ Error handling audio:", audioError);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing voice message:", error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: '[Voice response]',
+        text: "Sorry, I had an error processing your voice message. Please try again.",
         isUser: false,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   return (
@@ -157,16 +225,9 @@ export default function ChatScreen() {
         {/* 3D Model */}
         <View style={styles.modelContainer}>
           <View
+            ref={containerRef}
             style={styles.modelWrapper}
-            onLayout={(e) => {
-              const { width, height } = e.nativeEvent.layout
-              // if (sceneData) {
-              //   sceneData.resize(width, height)
-              // }
-            }}
-          >
-            <div ref={containerRef} style={styles.webCanvas} />
-          </View>
+          />
         </View>
 
         {/* Messages */}
@@ -257,12 +318,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-  },
-
-  webCanvas: {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    justifyContent: 'center',
   },
 });

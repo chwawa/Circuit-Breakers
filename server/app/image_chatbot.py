@@ -6,13 +6,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
 from backboard import BackboardClient
-from llm_parser import StreamParser
+from app.llm_parser import StreamParser
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Import the image analyzer function
-from image_analyzer import analyze_image_with_gemini
+from app.image_analyzer import analyze_image_with_gemini
 target_chunk_size = 250  # max characters per chunk
 
 def generate_name_from_image(image_path: str) -> str:
@@ -69,27 +69,13 @@ async def create_chatbot_assistant(image_path: str, chatbot_name: str = None) ->
     
     # Step 1: Generate name
     print("🏷️  Generating name for object...")
-    # object_name = generate_name_from_image(image_path)
-    # print(f"✓ Object name: {object_name}\n")
+    object_name = generate_name_from_image(image_path)
+    print(f"✓ Object name: {object_name}\n")
     
     # Step 2: Generate description
     print("📝 Generating description...")
-    # description = analyze_image_with_gemini(image_path)
+    description = analyze_image_with_gemini(image_path)
     print(f"✓ Description generated!\n")
-
-    description = """You are a white silicone case 
-    for wireless earbuds, shaped like a cute cartoon 
-    chick. You have a bright orange beak and two small, 
-    dark eyes. On your chest, you wear a yellow bib with 
-    a smaller chick face on it, conge beak and two small, 
-    dark eyes. On your chest, you wear a yellow bib with a
-    smaller chick face on it, complete with two black eyes and 
-    a little U-shaped mouth. A yellow line wraps around you diagonally, 
-    like a strap or a sash. Your feet are stubby and orange, firmly planted 
-    on a textured, dark gray surface. A small, gray tuft of "hair" sprouts
-    from the top of your head."""
-
-    object_name = "Chick AirPods Case"
     
     # Use provided name or generated name
     if chatbot_name is None:
