@@ -139,11 +139,9 @@ async def interactive_chat(assistant_info: dict, user_prompt: str = None):
     print(f"✓ Starting chat with '{assistant_name}'")
     
     if user_prompt:
-        # Non-interactive mode (from API/frontend)
         user_input = user_prompt
         print(f"📨 Processing prompt: {user_input}\n")
     else:
-        # Interactive mode
         print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
         
         while True:
@@ -158,50 +156,84 @@ async def interactive_chat(assistant_info: dict, user_prompt: str = None):
             
             break
     
-        print(f"{assistant_name}: ", end="", flush=True)
-        async for chunk in await client.add_message(
-            thread_id=thread_id,
-            content=user_input,
-            llm_provider="google",
-            model_name="gemini-2.5-flash-lite",
-            stream=True
-        ):
-            if chunk.get('type') == 'content_streaming':
-                raw_text = chunk['content']
-            
-                # Calls llm_parser to parse chunk
-                clean_segment, new_cmds = parser.parse_chunk(raw_text)
-                text_buffer += clean_segment
-                # print(clean_segment, end="", flush=True)
+    print(f"{assistant_name}: ", end="", flush=True)
+    async for chunk in await client.add_message(
+        thread_id=thread_id,
+        content=user_input,
+        llm_provider="google",
+        model_name="gemini-2.5-flash-lite",
+        stream=True
+    ):
+        if chunk.get('type') == 'content_streaming':
+            raw_text = chunk['content']
+        
+            # Calls llm_parser to parse chunk
+            clean_segment, new_cmds = parser.parse_chunk(raw_text)
+            text_buffer += clean_segment
+            print(clean_segment, end="", flush=True)
 
-                if new_cmds:
-                    yield {
-                        "clean_text": text_buffer,
-                        "commands": new_cmds, 
-                        "is_end": False
-                    }
-                    text_buffer = ""
-                
-                elif len(text_buffer) >= target_chunk_size: 
-                    yield {
-                        "clean_text": text_buffer,
-                        "commands": [], 
-                        "is_end": False
-                    }
-                    text_buffer = ""
+            # Only yield when we have commands or reach chunk size
+            if new_cmds:
+                print(f"\n[CMD: {new_cmds}]", end="", flush=True)
+                yield {
+                    "clean_text": text_buffer,
+                    "commands": new_cmds, 
+                    "is_end": False
+                }
+                text_buffer = ""
             
-            elif chunk['type'] == 'message_complete':
-                final_data = parser.finalize()
-                remaining_text = text_buffer + (final_data.get("clean_text", "") if not clean_segment in final_data.get("clean_text", "") else "")
+            elif len(text_buffer) >= target_chunk_size: 
+                yield {
+                    "clean_text": text_buffer,
+                    "commands": [], 
+                    "is_end": False
+                }
+                text_buffer = ""
+        
+        elif chunk['type'] == 'message_complete':
+            # Wait for message_complete, then finalize and yield everything
+            print("\n[COMPLETE]", flush=True)
+            final_data = parser.finalize()
+            
+            # Combine any remaining text with finalized data
+            remaining_text = text_buffer
+            if final_data.get("clean_text") and remaining_text not in final_data.get("clean_text", ""):
+                remaining_text = text_buffer + final_data.get("clean_text", "")
+            else:
+                remaining_text = text_buffer or final_data.get("clean_text", "")
+            
+            # Always yield the final message
+            yield {
+                "clean_text": remaining_text.strip(),
+                "commands": final_data.get("commands", []),
+                "is_end": True
+            }
+            print()
+            break 
+            #             "is_end": False
+            #         }
+            #         text_buffer = ""
                 
-                if remaining_text or final_data.get("commands"):
-                    yield {
-                        "clean_text": remaining_text,
-                        "commands": final_data.get("commands", []),
-                        "is_end": True
-                    }
-                print()
-                break
+            #     elif len(text_buffer) >= target_chunk_size: 
+            #         yield {
+            #             "clean_text": text_buffer,
+            #             "commands": [], 
+            #             "is_end": False
+            #         }
+            #         text_buffer = ""
+            
+            # elif chunk['type'] == 'message_complete':
+            #     final_data = parser.finalize()
+            #     remaining_text = text_buffer + (final_data.get("clean_text", "") if not clean_segment in final_data.get("clean_text", "") else "")
+                
+            #     if remaining_text or final_data.get("commands"):
+            #         yield {
+            #             "clean_text": remaining_text,
+            #             "commands": final_data.get("commands", []),
+            #             "is_end": True
+            #         }
+            #     print()
+            #     break
 
 # # async def main(image_path: str, chatbot_name: str = None):
 # #     """
