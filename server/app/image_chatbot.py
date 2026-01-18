@@ -193,27 +193,27 @@ async def interactive_chat(assistant_info: dict):
                 print()
                 break
 
-async def main(image_path: str, chatbot_name: str = None):
-    """
-    Main flow: analyze image, create assistant, start chat
-    """
-    # Create assistant from image
-    assistant_info = await create_chatbot_assistant(image_path, chatbot_name)
+# async def main(image_path: str, chatbot_name: str = None):
+#     """
+#     Main flow: analyze image, create assistant, start chat
+#     """
+#     # Create assistant from image
+#     assistant_info = await create_chatbot_assistant(image_path, chatbot_name)
     
-    # Start interactive chat and process yielded data
-    async for response in interactive_chat(assistant_info):
-        print(f"\n[YIELDED] Clean text: {response['clean_text']}")
-        print(f"[YIELDED] Commands: {response['commands']}")
-        print(f"[YIELDED] Is end: {response['is_end']}")
-        # TODO: Send response['clean_text'] and response['commands'] to audio converter here
+#     # Start interactive chat and process yielded data
+#     async for response in interactive_chat(assistant_info):
+#         print(f"\n[YIELDED] Clean text: {response['clean_text']}")
+#         print(f"[YIELDED] Commands: {response['commands']}")
+#         print(f"[YIELDED] Is end: {response['is_end']}")
+#         # TODO: Send response['clean_text'] and response['commands'] to audio converter here
 
-if __name__ == "__main__":
-    # Get image path from command line
-    if len(sys.argv) > 1:
-        image_path = sys.argv[1]
-        chatbot_name = sys.argv[2] if len(sys.argv) > 2 else None
-    else:
-        print("Usage: python image_chatbot.py <image_path> [chatbot_name]")
-        sys.exit(1)
+# if __name__ == "__main__":
+#     # Get image path from command line
+#     if len(sys.argv) > 1:
+#         image_path = sys.argv[1]
+#         chatbot_name = sys.argv[2] if len(sys.argv) > 2 else None
+#     else:
+#         print("Usage: python image_chatbot.py <image_path> [chatbot_name]")
+#         sys.exit(1)
     
-    asyncio.run(main(image_path, chatbot_name))
+#     asyncio.run(main(image_path, chatbot_name))

@@ -4,7 +4,7 @@ Connection point between frontend and backend services
 """
 from dotenv import load_dotenv
 load_dotenv()
-
+import sys
 import requests
 import time
 import os
@@ -12,14 +12,15 @@ import asyncio
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
-from .llm_parser import StreamParser
+from llm_parser import StreamParser
 import httpx
 from pydantic import BaseModel
 import base64
 from backboard import BackboardClient
 from snoopy_assistant import backboard_stream_generator
-from image_chatbot import create_chatbot_assistant
-# import audio_tts as tts
+from image_chatbot import create_chatbot_assistant, interactive_chat
+import audio_tts as tts
+
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
 # bb_client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
@@ -35,21 +36,17 @@ app.add_middleware(
 )
 
 # Start Audio TTS worker
-# if eleven_api_key := os.getenv("ELEVENLABS_API_KEY"):
-#     print("ElevenLabs API Key loaded")
-# else:
-#     print("ElevenLabs API Key not found in .env")
-#     exit()
+if eleven_api_key := os.getenv("ELEVENLABS_API_KEY"):
+    print("ElevenLabs API Key loaded")
+else:
+    print("ElevenLabs API Key not found in .env")
+    exit()
 
-# tts_audio_worker = tts.audio_tts(
-#     api_key=eleven_api_key,
-#     voice_id="JBFqnCBsd6RMkjVDRZzb",
-#     model_id="eleven_multilingual_v2"
-# )
-
-class ChatRequest(BaseModel):
-    prompt: str
-    track_positions: bool = True
+tts_audio_worker = tts.audio_tts(
+    api_key=eleven_api_key,
+    voice_id="JBFqnCBsd6RMkjVDRZzb",
+    model_id="eleven_multilingual_v2"
+)
 
 class ImageRequest(BaseModel):
     image_url: str
@@ -62,16 +59,41 @@ async def debug_exception_handler(request: Request, exc: Exception):
 """ Placeholder function to call an LLM API """
 @app.get("/chat-stream")
 async def call_llm():
-    # final_results = {"clean_text": "", "commands": [], "is_end": False}
+    chatbot_name = None
+    image_path = "D:\\Personal Projects\\Circuit-Breakers\\server\\app\\graces_airpods.jpg"
+    assistant_info = await create_chatbot_assistant(image_path, chatbot_name)
     results = []
-    async for chunk in backboard_stream_generator():
-        results.append(chunk)
-        print(chunk)  # Print each chunk
     
+    try:
+        async for response in interactive_chat(assistant_info):
+            # results.append(response)
+            # print(f"\n[YIELDED] Clean text: {response['clean_text']}")
+            # print(f"[YIELDED] Commands: {response['commands']}")
+            # print(f"[YIELDED] Is end: {response['is_end']}")
+            
+            # Send to TTS worker
+            if response['clean_text']:
+                tts_audio_worker.TTS(response)
+                
+                # Get audio chunk back
+                audio, command = tts_audio_worker.get_audio_chunk()
+                # Convert generator to bytes if needed
+                if hasattr(audio, '__iter__') and not isinstance(audio, bytes):
+                    audio_bytes = b''.join(audio)
+                else:
+                    audio_bytes = audio
+                print(f"[AUDIO] Generated {len(audio_bytes)} bytes, Command: {command}")
+    finally:
+        # Stop TTS worker thread when done
+        tts_audio_worker.stop()
+        print("TTS worker stopped.")
+
     return JSONResponse(content={"results": results})
 
 if __name__ == "__main__":
     asyncio.run(call_llm())
+
+    sys.exit(1)
 
 # Meshy.ai endpoints
 MESHY_HEADERS = {
