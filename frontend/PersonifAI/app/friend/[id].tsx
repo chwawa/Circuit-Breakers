@@ -173,16 +173,9 @@ export default function ChatScreen() {
         {/* 3D Model */}
         <View style={styles.modelContainer}>
           <View
+            ref={containerRef}
             style={styles.modelWrapper}
-            onLayout={(e) => {
-              const { width, height } = e.nativeEvent.layout
-              // if (sceneData) {
-              //   sceneData.resize(width, height)
-              // }
-            }}
-          >
-            <div ref={containerRef} style={styles.webCanvas} />
-          </View>
+          />
         </View>
 
         {/* Messages */}
@@ -273,12 +266,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-  },
-
-  webCanvas: {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    justifyContent: 'center',
   },
 });
