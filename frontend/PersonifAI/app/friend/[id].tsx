@@ -19,6 +19,9 @@ import { ChatInput } from '../../components/ChatInput';
 import { apiService } from '../../services/api';
 import { Message } from '../../types';
 
+import { GLView } from 'expo-gl';
+import { createScene } from '../../components/threeScene';
+
 export default function ChatScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +29,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const threeSceneRef = useRef<any>(null);
 
   const friend = friends.find((f) => f.id === id);
 
@@ -44,6 +48,22 @@ export default function ChatScreen() {
       </SafeAreaView>
     );
   }
+
+  const onContextCreate = (gl: any) => {
+    const { drawingBufferWidth, drawingBufferHeight } = gl;
+
+    const scene = createScene(
+      gl,
+      drawingBufferWidth,
+      drawingBufferHeight
+    );
+
+    // Use friend-specific model if you want later
+    scene.loadModel(friend.modelUrl);
+
+    threeSceneRef.current = scene;
+  };
+
 
   const playAudioResponse = async (audioUri: string) => {
     try {
@@ -131,11 +151,13 @@ export default function ChatScreen() {
           </View>
         </View>
 
-        {/* 3D Model Placeholder */}
+        {/* 3D Model */}
         <View style={styles.modelContainer}>
-          <View style={styles.modelPlaceholder}>
-            <Text style={styles.modelText}>3D Model{'\n'}Placeholder</Text>
-          </View>
+          <GLView
+            style={styles.modelPlaceholder}
+            onContextCreate={onContextCreate}
+            onTouchStart={() => threeSceneRef.current?.shakeModel()}
+          />
         </View>
 
         {/* Messages */}

@@ -11,12 +11,14 @@ import os
 import asyncio
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
-from .llm_parser import parse_llm_text
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from app.llm_parser import parse_llm_text
 import httpx
 from pydantic import BaseModel
 import base64
-# import audio_tts as tts
+import app.audio_tts as tts
+
+MODEL_DIR = "models"
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
 
@@ -100,7 +102,7 @@ MESHY_HEADERS = {
 }
 
 @app.post("/generate-3d")
-async def generate_3d(req: ImageRequest):
+async def generate_3d(req: ImageRequest, image_id: str = "default_image"):
     async with httpx.AsyncClient(timeout=60) as client:
 
         # 1. Generate a preview model and get the task ID
@@ -139,20 +141,38 @@ async def generate_3d(req: ImageRequest):
             
             if preview_task["model_urls"]["glb"]:
                 print(preview_task)
-                return preview_task["model_urls"]["glb"]
+                break
+                # return preview_task["model_urls"]["glb"]
 
         # 3. Download the preview model in glb format
 
-        # preview_model_url = preview_task["model_urls"]["glb"]
+        preview_model_url = preview_task["model_urls"]["glb"]
 
-        # preview_model_response = requests.get(preview_model_url)
-        # preview_model_response.raise_for_status()
+        model_resp = await client.get(preview_model_url)
+        model_resp.raise_for_status()
 
-        # with open("preview_model.glb", "wb") as f:
-        #     f.write(preview_model_response.content)
-        # print("Preview model downloaded.")
+        # Save using image_id as the filename
+        file_path = os.path.join(MODEL_DIR, f"{image_id}.glb")
+        
+        with open(file_path, "wb") as f:
+            f.write(model_resp.content)
+            
+        print(f"[{image_id}] Saved to {file_path}")
 
+        return f"http://localhost:8000/models/{image_id}"
 
+@app.get("/models/{image_id}")
+async def get_model(image_id: str):
+    """
+    Endpoint that serves the GLB file to the frontend.
+    """
+    file_path = os.path.join(MODEL_DIR, f"{image_id}.glb")
+    
+    if not os.path.exists(file_path):
+        print("Model not found. Has it been generated yet?")
+    
+    # Returning FileResponse automatically handles headers and content-type
+    return FileResponse(file_path, media_type="model/gltf-binary", filename=f"{image_id}.glb")
 
 # @app.websocket("/ws/audio")
 # async def websocket_endpoint(websocket: WebSocket):

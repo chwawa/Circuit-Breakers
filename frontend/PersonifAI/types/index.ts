@@ -5,6 +5,7 @@ export interface Friend {
   imageUrl: string;
   isProcessing: boolean;
   createdAt: number;
+  modelUrl?: string;
 }
 
 export interface Message {
