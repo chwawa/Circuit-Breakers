@@ -290,8 +290,8 @@ async def get_model(image_id: str):
 #             await websocket.send_bytes(chunk) # Send raw bytes
 #             await websocket.send_json({"command": command}) # Send associated command
 
-    except Exception as e:
-        print(f"Error: {e}")
+    # except Exception as e:
+    #     print(f"Error: {e}")
 
 
 # @app.post("/stt")

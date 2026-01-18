@@ -68,7 +68,7 @@ export default function FriendsScreen() {
       {Platform.OS === 'web' && (
         <style>{`
           .glow-title {
-            font-size: 60px;
+            font-size: 300%;
             font-weight: 700;
             color: white;
             display: flex;
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
 
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#d8b4fe',
   },
   grid: {
