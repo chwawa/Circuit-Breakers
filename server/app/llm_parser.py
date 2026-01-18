@@ -1,7 +1,7 @@
 import re
 from typing import Optional, Tuple, Dict, Any
 
-CMD_RE = re.compile(r"\[\[([A-Za-z0-9_\s-]+)\]\]")
+CMD_RE = re.compile(r"\[\[(.*?)\]\]", re.DOTALL)
 
 class StreamParser:
     def __init__(self):

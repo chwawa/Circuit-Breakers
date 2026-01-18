@@ -17,7 +17,7 @@ import httpx
 from pydantic import BaseModel
 import base64
 from backboard import BackboardClient
-from snoopy_assistant import backboard_stream_generator
+from server.app.dump.snoopy_assistant import backboard_stream_generator
 from image_chatbot import create_chatbot_assistant, interactive_chat
 import audio_tts as tts
 
@@ -67,22 +67,37 @@ async def call_llm():
     try:
         async for response in interactive_chat(assistant_info):
             # results.append(response)
-            # print(f"\n[YIELDED] Clean text: {response['clean_text']}")
-            # print(f"[YIELDED] Commands: {response['commands']}")
-            # print(f"[YIELDED] Is end: {response['is_end']}")
+            clean_text = response['clean_text']
+            lines = clean_text.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                # Strip leading/trailing spaces from each line
+                stripped = line.strip()
+                # Only add non-empty lines
+                if stripped:
+                    cleaned_lines.append(stripped)
+            cleaned_text = ' '.join(cleaned_lines)
+            response['clean_text'] = cleaned_text
+            
+            print(f"\n[YIELDED] Clean text: {response['clean_text']}")
+            print(f"[YIELDED] Commands: {response['commands']}")
+            print(f"[YIELDED] Is end: {response['is_end']}")
             
             # Send to TTS worker
             if response['clean_text']:
                 tts_audio_worker.TTS(response)
                 
-                # Get audio chunk back
-                audio, command = tts_audio_worker.get_audio_chunk()
-                # Convert generator to bytes if needed
-                if hasattr(audio, '__iter__') and not isinstance(audio, bytes):
-                    audio_bytes = b''.join(audio)
-                else:
-                    audio_bytes = audio
-                print(f"[AUDIO] Generated {len(audio_bytes)} bytes, Command: {command}")
+                # Don't wait for audio - let it play in background
+                # (Optional: you can check for audio without blocking)
+                try:
+                    audio, command = tts_audio_worker.audio_queue.get(timeout=0.1)
+                    if hasattr(audio, '__iter__') and not isinstance(audio, bytes):
+                        audio_bytes = b''.join(audio)
+                    else:
+                        audio_bytes = audio
+                    print(f"[AUDIO] Generated {len(audio_bytes)} bytes, Command: {command}")
+                except:
+                    pass  # Audio still processing, move on
     finally:
         # Stop TTS worker thread when done
         tts_audio_worker.stop()
@@ -90,10 +105,6 @@ async def call_llm():
 
     return JSONResponse(content={"results": results})
 
-if __name__ == "__main__":
-    asyncio.run(call_llm())
-
-    sys.exit(1)
 
 # Meshy.ai endpoints
 MESHY_HEADERS = {
@@ -194,5 +205,7 @@ async def generate_3d(req: ImageRequest):
 
 
 
+if __name__ == "__main__":
+    asyncio.run(call_llm())
 
             
