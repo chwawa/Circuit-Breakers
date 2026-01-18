@@ -36,8 +36,8 @@ export default function ChatScreen() {
   useEffect(() => {
     return sound
       ? () => {
-          sound.unloadAsync();
-        }
+        sound.unloadAsync();
+      }
       : undefined;
   }, [sound]);
 
@@ -88,22 +88,38 @@ export default function ChatScreen() {
 
     setMessages((prev) => [...prev, userMessage]);
 
-    const audioUri = await apiService.sendTextMessage(friend.id, text);
+    try {
+      console.log("📤 Sending message to backend...");
+      const response = await apiService.sendTextMessage(friend.id, text);
+      console.log("✅ Backend response:", response);
 
-    if (audioUri) {
-      playAudioResponse(audioUri);
-    }
+      if (response && response.results) {
+        // Combine all response chunks into one message
+        const fullText = response.results
+          .map((r: any) => r.clean_text)
+          .join(" ")
+          .trim();
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
+        console.log("💬 Full AI response text:", fullText);
+
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: fullText || `Response from ${friend.name}`,
+          isUser: false,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      }
+    } catch (error) {
+      console.error("❌ Error getting response:", error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: `Response from ${friend.name}`,
+        text: "Sorry, I had an error processing that. Please try again.",
         isUser: false,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   const handleSendVoice = async (audioUri: string) => {

@@ -73,28 +73,32 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
       return;
     }
 
-    const result = await apiService.createFriend(imageUri, name, personality);
+    try {
+      console.log("🔘 Create button pressed");
+      const result = await apiService.createFriend(imageUri, name, personality);
+      console.log("✅ Friend creation result:", result);
 
-    // Reset form
-    handleClose();
+      // Reset form
+      handleClose();
 
-    const newFriend = {
-      id: result.friendId,
-      name,
-      personality,
-      imageUrl: imageUri,
-      isProcessing: true,
-      createdAt: Date.now(),
-      modelUrl: result.modelUrl,
-    };
+      const newFriend = {
+        id: result.friendId,
+        name,
+        personality,
+        imageUrl: imageUri,
+        isProcessing: true,
+        createdAt: Date.now(),
+        modelUrl: result.modelUrl,
+      };
 
-    onCreateFriend(newFriend);
+      onCreateFriend(newFriend);
 
-    // Add to friends list
-
-
-    console.log('Created friend:', newFriend);
-    
+      console.log('✅ Created friend:', newFriend);
+      Alert.alert('Success', `Friend "${name}" created!`);
+    } catch (error) {
+      console.error("❌ Error creating friend:", error);
+      Alert.alert('Error', `Failed to create friend: ${error}`);
+    }
   };
 
   const handleClose = () => {
