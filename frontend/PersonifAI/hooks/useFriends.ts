@@ -1,42 +1,37 @@
-import { useState, useEffect } from 'react';
+import { create } from 'zustand';
 import { Alert } from 'react-native';
 import { Friend } from '../types';
 import { apiService } from '../services/api';
 
-export const useFriends = () => {
-  const [friends, setFriends] = useState<Friend[]>([]);
+type FriendsState = {
+  friends: Friend[];
+  addFriend: (friend: Friend) => void;
+  updateFriend: (id: string, updates: Partial<Friend>) => void;
+  pollProcessingFriends: () => void;
+};
 
-  // Poll for processing friends
-  useEffect(() => {
-    const processingFriends = friends.filter(f => f.isProcessing);
-    
-    if (processingFriends.length === 0) return;
+export const useFriends = create<FriendsState>((set, get) => ({
+  friends: [],
 
-    const interval = setInterval(async () => {
-      for (const friend of processingFriends) {
+  addFriend: (friend) =>
+    set(state => ({ friends: [...state.friends, friend] })),
+
+  updateFriend: (id, updates) =>
+    set(state => ({
+      friends: state.friends.map(f =>
+        f.id === id ? { ...f, ...updates } : f
+      ),
+    })),
+
+  pollProcessingFriends: () => {
+    setInterval(async () => {
+      for (const friend of get().friends.filter(f => f.isProcessing)) {
         const status = await apiService.getFriendStatus(friend.id);
         if (!status.isProcessing) {
-          setFriends(prev => prev.map(f => 
-            f.id === friend.id ? { ...f, isProcessing: false } : f
-          ));
-          // Show notification
+          get().updateFriend(friend.id, { isProcessing: false });
           Alert.alert('Friend Ready!', `${friend.name} is ready to chat!`);
         }
       }
-    }, 3000); // Poll every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [friends]);
-
-  const addFriend = (friend: Friend) => {
-    setFriends(prev => [...prev, friend]);
-  };
-
-  const updateFriend = (id: string, updates: Partial<Friend>) => {
-    setFriends(prev => prev.map(f => 
-      f.id === id ? { ...f, ...updates } : f
-    ));
-  };
-
-  return { friends, addFriend, updateFriend };
-};
+    }, 3000);
+  },
+}));

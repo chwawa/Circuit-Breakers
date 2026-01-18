@@ -1,112 +1,146 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
-export function createScene() {
-  // Scene 
+export function createScene(gl, width, height) {
+  /* ---------------- Scene ---------------- */
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x202020);
 
-  // Camera
+  /* ---------------- Camera ---------------- */
+  // Use passed width/height for correct aspect ratio in Expo
   const camera = new THREE.PerspectiveCamera(
     60,
-    window.innerWidth / window.innerHeight,
+    width / height,
     0.1,
     100
   );
   camera.position.set(0, 1.5, 4);
 
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  /* ---------------- Renderer ---------------- */
+  const renderer = new THREE.WebGLRenderer({
+    gl,
+    antialias: true,
+  });
+  renderer.setSize(width, height);
+  // Important for clear rendering on mobile screens
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
 
-  // Lights
-  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
-//   const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(2, 4, 2);
-  scene.add(light);
+  /* ---------------- Lights ---------------- */
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+  hemi.position.set(0, 4, 0);
+  scene.add(hemi);
 
+  const dir = new THREE.DirectionalLight(0xffffff, 1);
+  dir.position.set(2, 4, 2);
+  scene.add(dir);
+
+  /* ---------------- State ---------------- */
   const clock = new THREE.Clock();
   let mixer = null;
-  let currentModel = null;
+  let model = null;
+  let shaking = false;
 
-  // Animations
-  function animate() {
+  /* ---------------- Animation Loop ---------------- */
+  const animate = () => {
     requestAnimationFrame(animate);
 
-    if (mixer) mixer.update(clock.getDelta());
+    const delta = clock.getDelta();
+    if (mixer) mixer.update(delta);
 
-    if (currentModel) {
-        currentModel.rotation.y += 0.01;
-        currentModel.position.y = Math.sin(clock.elapsedTime * 2) * 0.05;
+    // Idle animation (only when not shaking)
+    if (model && !shaking) {
+      model.rotation.y += 0.01;
+      model.position.y = Math.sin(clock.elapsedTime * 2) * 0.05;
     }
 
     renderer.render(scene, camera);
-  }
+    gl.endFrameEXP();
+  };
+  
   animate();
 
-  // Interactions
-    const raycaster = new THREE.Raycaster()
-    const mouse = new THREE.Vector2()
+  /* ---------------- Shake Interaction ---------------- */
+  const shakeModel = () => {
+    if (!model || shaking) return;
 
-    // On click, shake the model
-    window.addEventListener('click', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
+    shaking = true;
+    const duration = 300;
+    const start = Date.now();
 
-    raycaster.setFromCamera(mouse, camera)
-    const hits = raycaster.intersectObjects(scene.children, true)
+    const originalPos = model.position.clone();
+    const originalRot = model.rotation.clone();
 
-    if (hits.length && currentModel) {
-        let shakeTime = 300 // total duration of shake in ms
-        let intervalTime = 30 // how often to move the currentModel
-        let elapsed = 0
+    const shake = () => {
+      const elapsed = Date.now() - start;
 
-        const originalPos = currentModel.position.clone()
-        const originalRot = currentModel.rotation.clone()
+      if (elapsed >= duration) {
+        model.position.copy(originalPos);
+        model.rotation.copy(originalRot);
+        shaking = false;
+        return;
+      }
 
-        const shakeInterval = setInterval(() => {
-        // Random small offsets for position
-        currentModel.position.x = originalPos.x + (Math.random() - 0.5) * 0.2
-        currentModel.position.y = originalPos.y + (Math.random() - 0.5) * 0.2
-        currentModel.position.z = originalPos.z + (Math.random() - 0.5) * 0.2
+      // Apply Random Offsets
+      model.position.set(
+        originalPos.x + (Math.random() - 0.5) * 0.2,
+        originalPos.y + (Math.random() - 0.5) * 0.2,
+        originalPos.z + (Math.random() - 0.5) * 0.2
+      );
 
-        // Random rotation shake
-        currentModel.rotation.x = originalRot.x + (Math.random() - 0.5) * 0.1
-        currentModel.rotation.y = originalRot.y + (Math.random() - 0.5) * 0.1
-        currentModel.rotation.z = originalRot.z + (Math.random() - 0.5) * 0.1
+      model.rotation.set(
+        originalRot.x + (Math.random() - 0.5) * 0.1,
+        originalRot.y + (Math.random() - 0.5) * 0.1,
+        originalRot.z + (Math.random() - 0.5) * 0.1
+      );
 
-        elapsed += intervalTime
-        if (elapsed >= shakeTime) {
-            clearInterval(shakeInterval)
-            currentModel.position.copy(originalPos)
-            currentModel.rotation.copy(originalRot)
+      requestAnimationFrame(shake);
+    };
+
+    shake();
+  };
+
+  /* ---------------- Model Loader ---------------- */
+  // Uses standard Three.js loader.load() as requested
+  const loadModel = (url) => {
+    const loader = new GLTFLoader();
+
+    loader.load(
+      url,
+      (gltf) => {
+        // Remove previous model if exists
+        if (model) scene.remove(model);
+
+        model = gltf.scene;
+        model.scale.set(1, 1, 1);
+        
+        // Center the model to ensure it pivots correctly
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+
+        scene.add(model);
+
+        // Handle Animations
+        if (gltf.animations && gltf.animations.length) {
+          mixer = new THREE.AnimationMixer(model);
+          const action = mixer.clipAction(gltf.animations[0]);
+          action.play();
         }
-        }, intervalTime)
-
-        // TODO: Play audio 
-    }
-    })
+      },
+      (xhr) => {
+        // Optional: Log progress
+        // console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+      },
+      (error) => {
+        console.error('An error happened loading the model:', error);
+      }
+    );
+  };
 
   return {
     scene,
-    loadModel(url) {
-      const loader = new GLTFLoader();
-      loader.load(url, (gltf) => {
-        gltf.scene.scale.set(1, 1, 1)
-        scene.add(gltf.scene);
-        currentModel = gltf.scene;
-
-        rotate_animation(0, gltf.scene);
-
-        if (gltf.animations.length) {
-          mixer = new THREE.AnimationMixer(currentModel);
-          const action = mixer.clipAction(gltf.animations[0]);
-          action.reset();
-          action.setLoop(THREE.LoopRepeat);
-          action.play();
-        }
-      });
-    },
+    camera,
+    loadModel,
+    shakeModel,
   };
 }

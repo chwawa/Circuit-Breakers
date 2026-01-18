@@ -8,6 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { useFriends } from '../../hooks/useFriends';
 import { FriendCard } from '../../components/FriendCard';
 import { CreateFriendModal } from '../../components/CreateFriendModal';
@@ -15,7 +16,11 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function FriendsScreen() {
   const router = useRouter();
-  const { friends, addFriend } = useFriends();
+  const { friends, addFriend, pollProcessingFriends } = useFriends();
+
+  useEffect(() => {
+    pollProcessingFriends();
+  }, []);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleSelectFriend = (friendId: string) => {

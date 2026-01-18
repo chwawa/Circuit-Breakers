@@ -75,6 +75,9 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
 
     const result = await apiService.createFriend(imageUri, name, personality);
 
+    // Reset form
+    handleClose();
+
     const newFriend = {
       id: result.friendId,
       name,
@@ -82,15 +85,16 @@ export const CreateFriendModal: React.FC<CreateFriendModalProps> = ({
       imageUrl: imageUri,
       isProcessing: true,
       createdAt: Date.now(),
+      modelUrl: result.modelUrl,
     };
 
     onCreateFriend(newFriend);
+
+    // Add to friends list
+
+
+    console.log('Created friend:', newFriend);
     
-    // Reset form
-    setName('');
-    setPersonality('');
-    setImageUri(null);
-    onClose();
   };
 
   const handleClose = () => {
