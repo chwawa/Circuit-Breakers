@@ -18,7 +18,7 @@ export function createScene() {
   // Renderer
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  // document.body.appendChild(renderer.domElement);
 
   // Lights
   const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
@@ -90,6 +90,7 @@ export function createScene() {
 
   return {
     scene,
+    getRenderer: () => renderer,
     loadModel(url) {
       const loader = new GLTFLoader();
       loader.load(url, (gltf) => {
@@ -97,7 +98,7 @@ export function createScene() {
         scene.add(gltf.scene);
         currentModel = gltf.scene;
 
-        rotate_animation(0, gltf.scene);
+        // rotate_animation(0, gltf.scene);
 
         if (gltf.animations.length) {
           mixer = new THREE.AnimationMixer(currentModel);

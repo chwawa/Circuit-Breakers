@@ -11,12 +11,14 @@ import { useRouter } from 'expo-router';
 import { useFriends } from '../../hooks/useFriends';
 import { FriendCard } from '../../components/FriendCard';
 import { CreateFriendModal } from '../../components/CreateFriendModal';
+import ModelPage from '@/components/ModelPage';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function FriendsScreen() {
   const router = useRouter();
   const { friends, addFriend } = useFriends();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showModelPage, setShowModelPage] = useState(false);
 
   const handleSelectFriend = (friendId: string) => {
     router.push(`/friend/${friendId}`);
@@ -43,6 +45,17 @@ export default function FriendsScreen() {
             <Text style={styles.createText}>Create Friend</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            onPress={() => setShowModelPage(true)}
+            style={styles.createCard}
+            activeOpacity={0.7}
+          >
+            <View style={styles.createIconContainer}>
+              <Ionicons name="add" size={32} color="white" />
+            </View>
+            <Text style={styles.createText}>See Model</Text>
+          </TouchableOpacity>
+
           {/* Friend Cards */}
           {friends.map((friend) => (
             <FriendCard
@@ -64,6 +77,10 @@ export default function FriendsScreen() {
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreateFriend={addFriend}
+      />
+      <ModelPage
+        visible={showModelPage}
+        onClose={() => setShowModelPage(false)}
       />
     </SafeAreaView>
   );

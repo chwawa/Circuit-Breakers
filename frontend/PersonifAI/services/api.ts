@@ -1,4 +1,4 @@
-import { createScene } from "../components/threeScene.js";
+// import { createScene } from "../components/threeScene.js";
 // const { loadModel } = createScene();
 
 export async function blobUrlToBase64(blobUrl: string): Promise<string> {
