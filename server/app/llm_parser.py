@@ -1,49 +1,75 @@
-"""
-Parser for LLM-generated text with embedded command markers.
-
-Parses text containing commands in [[COMMAND]] format and extracts:
-- Clean text with commands removed
-- List of commands in order of appearance
-- Optional: positions of commands in the original text
-"""
-
 import re
-from typing import NamedTuple, Optional
+from typing import Optional, Tuple, Dict, Any
 
+CMD_RE = re.compile(r"\[\[(.*?)\]\]", re.DOTALL)
 
-class ParsedLLMOutput(NamedTuple):
-    """Result of parsing LLM output text."""
-    clean_text: str
-    commands: list[str]
-    positions: Optional[list[int]] = None
+class StreamParser:
+    def __init__(self):
+        self.buffer = ""
+        self.clean_text = ""   # full history
+        self.commands = []     # list of commands (strings)
 
+    def parse_chunk(self, chunk: str) -> Tuple[str, list]:
+        """
+        Add streamed chunk, and return:
+          - newly confirmed clean text
+          - list of all completed commands found (empty list if none)
+        """
+        self.buffer += chunk
+        new_clean = ""
+        commands_found = []
 
-def parse_llm_text(text: str, track_positions: bool = False) -> ParsedLLMOutput:
-    """Parse LLM-generated text with embedded commands."""
+        # Extract ALL commands from the buffer
+        while True:
+            m = CMD_RE.search(self.buffer)
+            if not m:
+                break
 
-    # Pattern to match [[COMMAND]] or [COMMAND] format
-    pattern = r'\[{1,2}([A-Za-z_][A-Za-z0-9_]*)\]{1,2}'
+            start, end = m.span()
+            cmd = m.group(1)
 
-    commands = []
-    positions = [] if track_positions else None
+            # everything before [[COMMAND]] is now confirmed clean
+            text_segment = self.buffer[:start]
+            new_clean += text_segment
+            self.clean_text += text_segment
 
-    # counts the word index in the clean text (for command positions) 
-    # note: 0 - base index
-    def replace_command(match):
-        commands.append(match.group(1))
+            # record + emit the command
+            self.commands.append(cmd)
+            commands_found.append(cmd)
 
-        if positions is not None:
-            before = text[:match.start()]               
-            word_index = len(before.strip().split()) 
-            positions.append(word_index)
+            # remove through the end of this command, keep the rest for later
+            self.buffer = self.buffer[end:]
 
-        return ""
+        # If no full command exists, we can safely flush text that
+        # cannot be part of a future command start.
+        # Keep at most 1 '[' in case a command marker '[[' starts across chunk boundary.
+        if not commands_found:
+            last_bracket = self.buffer.rfind("[")
+            if last_bracket == -1:
+                # no possible command start
+                new_clean += self.buffer
+                self.clean_text += self.buffer
+                self.buffer = ""
+            else:
+                # flush everything before the last '['
+                flush = self.buffer[:last_bracket]
+                new_clean += flush
+                self.clean_text += flush
+                self.buffer = self.buffer[last_bracket:]
 
-    clean_text = re.sub(pattern, replace_command, text)
-    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+        return new_clean, commands_found
 
-    return ParsedLLMOutput(
-        clean_text=clean_text,
-        commands=commands,
-        positions=positions
-    )
+    def finalize(self) -> Dict[str, Any]:
+        """
+        Flush remaining buffer as clean text.
+        (If buffer contains an unmatched '[[' it will be treated as literal text.)
+        """
+        if self.buffer:
+            self.clean_text += self.buffer
+            self.buffer = ""
+
+        return {
+            "clean_text": self.clean_text,
+            "commands": self.commands,
+            "is_end": True,
+        }
