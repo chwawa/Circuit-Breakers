@@ -123,10 +123,11 @@ async def create_chatbot_assistant(image_path: str, chatbot_name: str = None) ->
         "client": client
     }
 
-async def interactive_chat(assistant_info: dict):
+async def interactive_chat(assistant_info: dict, user_prompt: str = None):
     """
     Interactive chat loop with the assistant.
     Yields cleaned text and commands for each response.
+    If user_prompt is provided, uses that instead of input().
     """
     thread_id = assistant_info['thread_id']
     client = assistant_info['client']
@@ -136,18 +137,27 @@ async def interactive_chat(assistant_info: dict):
     text_buffer = ""
     
     print(f"✓ Starting chat with '{assistant_name}'")
-    print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
     
-    while True:
-        user_input = input("You: ").strip()
+    if user_prompt:
+        # Non-interactive mode (from API/frontend)
+        user_input = user_prompt
+        print(f"📨 Processing prompt: {user_input}\n")
+    else:
+        # Interactive mode
+        print("Type 'exit', 'quit', or 'bye' to end the conversation.\n")
         
-        if user_input.lower() in ['exit', 'quit', 'bye']:
-            print("Goodbye! Your conversation has been saved.")
-            return
-        
-        if not user_input:
-            continue
-        
+        while True:
+            user_input = input("You: ").strip()
+            
+            if user_input.lower() in ['exit', 'quit', 'bye']:
+                print("Goodbye! Your conversation has been saved.")
+                return
+            
+            if not user_input:
+                continue
+            
+            break
+    
         print(f"{assistant_name}: ", end="", flush=True)
         async for chunk in await client.add_message(
             thread_id=thread_id,

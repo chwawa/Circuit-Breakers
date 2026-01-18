@@ -16,10 +16,10 @@ from llm_parser import StreamParser
 import httpx
 from pydantic import BaseModel
 import base64
-from backboard import BackboardClient
-from server.app.dump.snoopy_assistant import backboard_stream_generator
 from image_chatbot import create_chatbot_assistant, interactive_chat
 import audio_tts as tts
+import audio_stt as stt
+from fastapi import UploadFile, File, HTTPException
 
 
 MESHY_API_KEY = os.getenv("MESHY_API_KEY")
@@ -51,10 +51,64 @@ tts_audio_worker = tts.audio_tts(
 class ImageRequest(BaseModel):
     image_url: str
 
+class ChatRequest(BaseModel):
+    prompt: str
+
 @app.exception_handler(Exception)
 async def debug_exception_handler(request: Request, exc: Exception):
     print("ERROR:", exc)
     return PlainTextResponse(str(exc), status_code=400)
+
+@app.post("/chat")
+async def process_prompt(req: ChatRequest):
+    """
+    Receives prompt from frontend (STT result),
+    creates assistant, sends prompt to chatbot,
+    returns cleaned text and commands
+    """
+    print(f"📨 Received prompt from frontend: {req.prompt}")
+    
+    # Create chatbot from image
+    chatbot_name = None
+    image_path = "D:\\Personal Projects\\Circuit-Breakers\\server\\app\\graces_airpods.jpg"
+    assistant_info = await create_chatbot_assistant(image_path, chatbot_name)
+    results = []
+    
+    try:
+        # Pass the prompt directly without asking for input
+        async for response in interactive_chat(assistant_info, user_prompt=req.prompt):
+            clean_text = response['clean_text']
+            lines = clean_text.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                stripped = line.strip()
+                if stripped:
+                    cleaned_lines.append(stripped)
+            clean_text = ' '.join(cleaned_lines)
+            response['clean_text'] = clean_text
+            
+            print(f"\n[RESPONSE] Clean text: {response['clean_text']}")
+            print(f"[RESPONSE] Commands: {response['commands']}")
+            
+            # Send to TTS worker
+            if response['clean_text']:
+                tts_audio_worker.TTS(response)
+                
+                try:
+                    audio, command = tts_audio_worker.audio_queue.get(timeout=0.1)
+                    if hasattr(audio, '__iter__') and not isinstance(audio, bytes):
+                        audio_bytes = b''.join(audio)
+                    else:
+                        audio_bytes = audio
+                    print(f"[AUDIO] Generated {len(audio_bytes)} bytes")
+                except:
+                    pass
+            
+            results.append(response)
+    finally:
+        tts_audio_worker.stop()
+    
+    return JSONResponse(content={"results": results})
 
 """ Placeholder function to call an LLM API """
 @app.get("/chat-stream")
@@ -87,8 +141,6 @@ async def call_llm():
             if response['clean_text']:
                 tts_audio_worker.TTS(response)
                 
-                # Don't wait for audio - let it play in background
-                # (Optional: you can check for audio without blocking)
                 try:
                     audio, command = tts_audio_worker.audio_queue.get(timeout=0.1)
                     if hasattr(audio, '__iter__') and not isinstance(audio, bytes):
@@ -154,30 +206,18 @@ async def generate_3d(req: ImageRequest):
                 print(preview_task)
                 return preview_task["model_urls"]["glb"]
 
-        # 3. Download the preview model in glb format
 
-        # preview_model_url = preview_task["model_urls"]["glb"]
+@app.websocket("/ws/audio")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            chunk, command = await tts_audio_worker.get_audio_chunk()
+            await websocket.send_bytes(chunk) # Send raw bytes
+            await websocket.send_json({"command": command}) # Send associated command
 
-        # preview_model_response = requests.get(preview_model_url)
-        # preview_model_response.raise_for_status()
-
-        # with open("preview_model.glb", "wb") as f:
-        #     f.write(preview_model_response.content)
-        # print("Preview model downloaded.")
-
-
-
-# @app.websocket("/ws/audio")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await websocket.accept()
-#     try:
-#         while True:
-#             chunk, command = await tts_audio_worker.get_audio_chunk()
-#             await websocket.send_bytes(chunk) # Send raw bytes
-#             await websocket.send_json({"command": command}) # Send associated command
-
-#     except Exception as e:
-#         print(f"Error: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 # @app.post("/stt")
